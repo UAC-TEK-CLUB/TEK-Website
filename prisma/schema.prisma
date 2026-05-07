@@ -1,0 +1,309 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================================
+// 1. IDENTITY & ACCESS  (ISA: Member -> Officer | Regular)
+// ==========================================================
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+  ALUMNI
+  SUSPENDED
+}
+
+enum MemberType {
+  OFFICER
+  REGULAR
+}
+
+model Member {
+  memberId         String           @id @default(cuid()) @map("member_id")
+  universityId     String           @unique @map("university_id")
+  email            String           @unique
+  firstName        String           @map("first_name")
+  lastName         String           @map("last_name")
+  passwordHash     String?          @map("password_hash")
+  joinDate         DateTime         @default(now()) @map("join_date")
+  membershipStatus MembershipStatus @default(ACTIVE) @map("membership_status")
+  memberType       MemberType       @map("member_type")
+
+  // Recursive 1:N mentorship
+  mentorId String?  @map("mentor_id")
+  mentor   Member?  @relation("Mentorship", fields: [mentorId], references: [memberId], onDelete: SetNull)
+  mentees  Member[] @relation("Mentorship")
+
+  // ISA 1:1 subtypes
+  officerProfile ClubOfficer?
+  regularProfile RegularMember?
+
+  // Reverse relations
+  labApplications  LabApplication[]
+  labProposals     LabProposal[]      @relation("ProposedBy")
+  attendance       AttendanceRecord[]
+  bulletinPosts    BulletinPost[]
+  galleryUploads   GalleryPhoto[]
+  sentMessages     ChatMessage[]      @relation("Sender")
+  receivedMessages ChatMessage[]      @relation("Receiver")
+  tutorSessions    TutoringSession[]  @relation("Tutor")
+  studentSessions  TutoringSession[]  @relation("Student")
+
+  @@map("members")
+}
+
+model ClubOfficer {
+  memberId         String @id @map("member_id")
+  adminAccessLevel Int    @default(1) @map("admin_access_level")
+
+  member            Member             @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
+  proposalDecisions LabProposal[]      @relation("ReviewedBy")
+  healthLogs        WebsiteHealthLog[]
+
+  @@map("club_officers")
+}
+
+model RegularMember {
+  memberId           String   @id @map("member_id")
+  expectedGraduation DateTime @map("expected_graduation")
+
+  member Member @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
+
+  @@map("regular_members")
+}
+
+// ==========================================================
+// 2. RECRUITMENT PIPELINE
+// ==========================================================
+
+model Visitor {
+  visitorId   String   @id @default(cuid()) @map("visitor_id")
+  ipAddress   String   @map("ip_address")
+  browserType String   @map("browser_type")
+  visitedAt   DateTime @default(now()) @map("visited_at")
+
+  applications ClubApplication[]
+
+  @@map("visitors")
+}
+
+model Applicant {
+  universityId String @id @map("university_id")
+  firstName    String @map("first_name")
+  lastName     String @map("last_name")
+  email        String @unique
+
+  applications ClubApplication[]
+
+  @@map("applicants")
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WITHDRAWN
+}
+
+model ClubApplication {
+  clubAppId        String            @id @default(cuid()) @map("club_app_id")
+  applicantId      String            @map("applicant_id")
+  visitorId        String?           @map("visitor_id")
+  major            String
+  codingExperience String            @map("coding_experience")
+  status           ApplicationStatus @default(PENDING)
+  submittedAt      DateTime          @default(now()) @map("submitted_at")
+
+  applicant Applicant @relation(fields: [applicantId], references: [universityId], onDelete: Cascade)
+  visitor   Visitor?  @relation(fields: [visitorId], references: [visitorId], onDelete: SetNull)
+
+  @@index([status])
+  @@map("club_applications")
+}
+
+// ==========================================================
+// 3. LAB & OPERATIONS
+// ==========================================================
+
+model Lab {
+  labId       String   @id @default(cuid()) @map("lab_id")
+  labName     String   @unique @map("lab_name")
+  description String
+  objective   String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  applications LabApplication[]
+
+  @@map("labs")
+}
+
+model LabApplication {
+  labAppId  String            @id @default(cuid()) @map("lab_app_id")
+  memberId  String            @map("member_id")
+  labId     String            @map("lab_id")
+  status    ApplicationStatus @default(PENDING)
+  appliedAt DateTime          @default(now()) @map("applied_at")
+
+  member Member @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
+  lab    Lab    @relation(fields: [labId], references: [labId], onDelete: Cascade)
+
+  @@unique([memberId, labId])
+  @@map("lab_applications")
+}
+
+enum ProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model LabProposal {
+  proposalId   String         @id @default(cuid()) @map("proposal_id")
+  proposedById String         @map("proposed_by")
+  reviewedById String?        @map("reviewed_by")
+  proposedName String         @map("proposed_name")
+  description  String
+  objective    String
+  status       ProposalStatus @default(PENDING)
+  proposedAt   DateTime       @default(now()) @map("proposed_at")
+
+  proposedBy Member       @relation("ProposedBy", fields: [proposedById], references: [memberId], onDelete: Cascade)
+  reviewedBy ClubOfficer? @relation("ReviewedBy", fields: [reviewedById], references: [memberId], onDelete: SetNull)
+
+  @@map("lab_proposals")
+}
+
+// ==========================================================
+// 4. EVENTS & ATTENDANCE  (M:N associative entity)
+// ==========================================================
+
+enum MeetingType {
+  GENERAL
+  WORKSHOP
+  HACKATHON
+  SOCIAL
+  OFFICER_ONLY
+}
+
+model Meeting {
+  meetingId   String      @id @default(cuid()) @map("meeting_id")
+  title       String
+  scheduledAt DateTime    @map("scheduled_at")
+  type        MeetingType
+  location    String?
+
+  attendance AttendanceRecord[]
+
+  @@map("meetings")
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  EXCUSED
+  LATE
+}
+
+model AttendanceRecord {
+  meetingId        String           @map("meeting_id")
+  memberId         String           @map("member_id")
+  attendanceStatus AttendanceStatus @map("attendance_status")
+  recordedAt       DateTime         @default(now()) @map("recorded_at")
+
+  meeting Meeting @relation(fields: [meetingId], references: [meetingId], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
+
+  @@id([meetingId, memberId])
+  @@map("attendance_records")
+}
+
+// ==========================================================
+// 5. COMMUNITY & ENGAGEMENT
+// ==========================================================
+
+model BulletinPost {
+  postId   String   @id @default(cuid()) @map("post_id")
+  authorId String   @map("author_id")
+  title    String
+  content  String
+  pinned   Boolean  @default(false)
+  postedAt DateTime @default(now()) @map("posted_at")
+
+  author Member @relation(fields: [authorId], references: [memberId], onDelete: Cascade)
+
+  @@index([postedAt])
+  @@map("bulletin_board")
+}
+
+model GalleryPhoto {
+  photoId    String   @id @default(cuid()) @map("photo_id")
+  uploaderId String   @map("uploader_id")
+  url        String
+  caption    String?
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+
+  uploader Member @relation(fields: [uploaderId], references: [memberId], onDelete: Cascade)
+
+  @@map("gallery_photos")
+}
+
+model ChatMessage {
+  messageId  String    @id @default(cuid()) @map("message_id")
+  senderId   String    @map("sender_id")
+  receiverId String    @map("receiver_id")
+  content    String
+  sentAt     DateTime  @default(now()) @map("sent_at")
+  readAt     DateTime? @map("read_at")
+
+  sender   Member @relation("Sender",   fields: [senderId],   references: [memberId], onDelete: Cascade)
+  receiver Member @relation("Receiver", fields: [receiverId], references: [memberId], onDelete: Cascade)
+
+  @@index([senderId, receiverId, sentAt])
+  @@map("chat_messages")
+}
+
+enum TutoringStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+model TutoringSession {
+  sessionId    String         @id @default(cuid()) @map("session_id")
+  tutorId      String         @map("tutor_id")
+  studentId    String         @map("student_id")
+  subject      String
+  scheduledAt  DateTime       @map("scheduled_at")
+  durationMins Int            @default(60) @map("duration_mins")
+  status       TutoringStatus @default(SCHEDULED)
+
+  tutor   Member @relation("Tutor",   fields: [tutorId],   references: [memberId], onDelete: Cascade)
+  student Member @relation("Student", fields: [studentId], references: [memberId], onDelete: Cascade)
+
+  @@index([tutorId, scheduledAt])
+  @@index([studentId, scheduledAt])
+  @@map("tutoring_sessions")
+}
+
+// ==========================================================
+// 6. ADMINISTRATION
+// ==========================================================
+
+model WebsiteHealthLog {
+  logId        String   @id @default(cuid()) @map("log_id")
+  recordedById String   @map("recorded_by")
+  metricName   String   @map("metric_name")
+  metricValue  Float    @map("metric_value")
+  recordedAt   DateTime @default(now()) @map("recorded_at")
+
+  recordedBy ClubOfficer @relation(fields: [recordedById], references: [memberId], onDelete: Cascade)
+
+  @@index([metricName, recordedAt])
+  @@map("website_health_logs")
+}
