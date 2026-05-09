@@ -1,16 +1,26 @@
-import { Code2 } from "lucide-react";
+import Image from "next/image";
 
 export function Footer() {
   return (
-    <footer className="border-t bg-muted/30">
-      <div className="container flex flex-col items-center justify-between gap-4 py-8 md:flex-row">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Code2 className="h-4 w-4 text-primary" />
-          <span>TEK Club Management Portal</span>
+    <footer className="border-t bg-muted/30 dark:bg-background dark:border-border">
+      <div className="container flex flex-col gap-4 py-8">
+        <div className="w-fit dark:rounded-md dark:bg-white dark:p-2 dark:shadow-md">
+          <Image
+            src="/branding/university-of-utah-horizontal.png"
+            alt="The University of Utah Asia Campus"
+            width={224}
+            height={67}
+            className="h-[2.45rem] w-auto max-w-[min(100vw-3rem,196px)] object-contain object-left sm:h-[2.8rem] sm:max-w-[224px]"
+          />
         </div>
-        <p className="text-xs text-muted-foreground">
-          Built with Next.js, Prisma, and shadcn/ui.
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
+          <p className="text-xs text-muted-foreground">
+            UAC TEK Club · TEK Korea — student chapter at the Asia Campus.
+          </p>
+          <p className="text-xs text-muted-foreground sm:shrink-0 sm:text-right">
+            Built with Next.js, Prisma, and shadcn/ui.
+          </p>
+        </div>
       </div>
     </footer>
   );

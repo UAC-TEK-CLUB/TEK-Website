@@ -1,6 +1,7 @@
-# TEK Club Management Portal
+# UAC TEK Club
 
-Next.js 14 + TypeScript + Prisma + PostgreSQL portal for the UAC TEK Club.
+Next.js 14 + TypeScript + Prisma + PostgreSQL portal for the UAC TEK Club —
+the University of Utah Asia Campus coding & analytics society.
 Styled with Tailwind CSS, shadcn/ui, and Lucide React.
 
 ## Stack
@@ -99,6 +100,8 @@ The app is built database-agnostic; switching from local Postgres to AWS RDS / A
    NEXTAUTH_URL=https://<your-domain>
    AUTH_TRUST_HOST=true
    S3_ENDPOINT=...   S3_BUCKET=...   S3_ACCESS_KEY_ID=...   S3_SECRET_ACCESS_KEY=...   S3_PUBLIC_URL=...
+   APP_URL=https://<your-domain>
+   SMTP_HOST=email-smtp.<region>.amazonaws.com   SMTP_PORT=587   SMTP_USER=<ses-smtp-user>   SMTP_PASSWORD=<ses-smtp-password>   EMAIL_FROM="UAC TEK Club <noreply@your-domain>"
    ```
 3. Apply the committed migrations to RDS (do **not** run `migrate dev` against prod):
    ```bash
@@ -119,5 +122,9 @@ The committed `prisma/migrations/` directory is the source of truth for the sche
 
 - **Gallery uploads:** the `PhotoUploader` component currently accepts a public URL. Wire S3-compatible presigned uploads (R2 / Supabase Storage) before launch — see `.env.example` `S3_*` variables.
 - **Realtime chat:** `ChatThread` polls on `router.refresh()` after sends. For production, swap in Supabase Realtime or Pusher Channels per the Phase 5 plan.
-- **Email:** approval emails are not yet sent — `decideApplication` returns the temp password to the officer UI for manual delivery.
+- **Email:** transactional email (acceptance / pending / rejection) is sent via SMTP using `nodemailer`. If `SMTP_HOST` is unset (e.g. in local dev) the emails are written to the server console instead, so the flow still works without a provider. Recommended providers:
+  - **AWS SES** — best fit for the AWS deployment path. Verify a sending domain in SES, request production access (out of sandbox), then create SMTP credentials and plug them into `SMTP_*`.
+  - **Gmail App Password** — fine for early demos. Enable 2FA on the Google account, generate an App Password, set `SMTP_HOST=smtp.gmail.com`, `SMTP_USER=<gmail address>`, `SMTP_PASSWORD=<app password>`.
+  - **Resend** — `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASSWORD=<RESEND_API_KEY>`.
+  Officers also still see the `/register?token=...` URL in the approval dialog so they can share it manually as a fallback.
 - **Visitor logging:** middleware sets a `tek_visitor_id` cookie. The `Visitor` row is created when an applicant submits a form; you can extend the middleware to write rows directly if you want pure traffic logs.

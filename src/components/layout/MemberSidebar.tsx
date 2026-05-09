@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   CalendarDays,
+  Crown,
   FlaskConical,
   GraduationCap,
   Image as ImageIcon,
@@ -10,7 +11,6 @@ import {
   Shield,
   UserCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const memberLinks = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -21,18 +21,27 @@ const memberLinks = [
   { href: "/bulletin", label: "Bulletin", icon: Newspaper },
   { href: "/gallery", label: "Gallery", icon: ImageIcon },
   { href: "/messages", label: "Messages", icon: MessageSquare },
-  { href: "/tutoring", label: "Tutoring", icon: GraduationCap },
+  { href: "/tutoring", label: "Tutoring Videos", icon: GraduationCap },
 ];
 
 const officerLinks = [
-  { href: "/admin/applicants", label: "Applicants", icon: Shield },
   { href: "/admin/proposals", label: "Proposals", icon: Shield },
   { href: "/admin/members", label: "Members", icon: Shield },
   { href: "/admin/meetings", label: "Manage Meetings", icon: Shield },
   { href: "/admin/health", label: "Health", icon: Shield },
 ];
 
-export function MemberSidebar({ isOfficer }: { isOfficer: boolean }) {
+const executiveLinks = [
+  { href: "/admin/applicants", label: "Applicants", icon: Crown },
+];
+
+export function MemberSidebar({
+  isOfficer,
+  isExecutive,
+}: {
+  isOfficer: boolean;
+  isExecutive: boolean;
+}) {
   return (
     <aside className="hidden w-56 shrink-0 border-r bg-muted/20 md:block">
       <nav className="flex flex-col gap-1 p-4">
@@ -43,13 +52,28 @@ export function MemberSidebar({ isOfficer }: { isOfficer: boolean }) {
           <Link
             key={href}
             href={href}
-            className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            )}
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <Icon className="h-4 w-4" /> {label}
           </Link>
         ))}
+
+        {isExecutive && (
+          <>
+            <p className="mt-4 px-2 pb-2 text-xs font-semibold uppercase text-muted-foreground">
+              Executive
+            </p>
+            {executiveLinks.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <Icon className="h-4 w-4" /> {label}
+              </Link>
+            ))}
+          </>
+        )}
 
         {isOfficer && (
           <>

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { isPresident, requireOfficer } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -11,9 +12,13 @@ import {
 import { RoleBadge } from "@/components/identity/RoleBadge";
 import { MembershipStatusBadge } from "@/components/identity/MembershipStatusBadge";
 import { MentorPicker } from "@/components/identity/MentorPicker";
+import { OfficerRolePicker } from "@/components/identity/OfficerRolePicker";
 import { fullName } from "@/lib/utils";
 
 export default async function AdminMembersPage() {
+  const me = await requireOfficer(1);
+  const president = isPresident(me);
+
   const members = await prisma.member.findMany({
     include: { officerProfile: true, mentor: true },
     orderBy: [{ memberType: "desc" }, { lastName: "asc" }],
@@ -31,6 +36,9 @@ export default async function AdminMembersPage() {
         <h1 className="text-2xl font-bold">Members</h1>
         <p className="text-sm text-muted-foreground">
           Officers, regular members, mentors, and statuses.
+          {president
+            ? " As president, you can promote officers to Supervisor or hand off the President role."
+            : " Only the president can change officer roles."}
         </p>
       </div>
 
@@ -45,6 +53,7 @@ export default async function AdminMembersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>University ID</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>Officer rank</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Mentor</TableHead>
               </TableRow>
@@ -60,8 +69,25 @@ export default async function AdminMembersPage() {
                   <TableCell>
                     <RoleBadge
                       memberType={m.memberType}
+                      officerRole={m.officerProfile?.officerRole}
                       level={m.officerProfile?.adminAccessLevel}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {m.officerProfile ? (
+                      president ? (
+                        <OfficerRolePicker
+                          memberId={m.memberId}
+                          current={m.officerProfile.officerRole}
+                        />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {labelFor(m.officerProfile.officerRole)}
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <MembershipStatusBadge status={m.membershipStatus} />
@@ -81,4 +107,15 @@ export default async function AdminMembersPage() {
       </Card>
     </div>
   );
+}
+
+function labelFor(role: "PRESIDENT" | "SUPERVISOR" | "OFFICER") {
+  switch (role) {
+    case "PRESIDENT":
+      return "President";
+    case "SUPERVISOR":
+      return "Supervisor";
+    default:
+      return "Officer";
+  }
 }

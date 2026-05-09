@@ -1,4 +1,4 @@
-import type { MemberType } from "@prisma/client";
+import type { MemberType, OfficerRole } from "@prisma/client";
 import type { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
@@ -7,12 +7,14 @@ declare module "next-auth" {
       memberId: string;
       memberType: MemberType;
       adminAccessLevel: number;
+      officerRole: OfficerRole | null;
     } & DefaultSession["user"];
   }
 
   interface User {
     memberType?: MemberType;
     adminAccessLevel?: number;
+    officerRole?: OfficerRole | null;
   }
 }
 
@@ -21,5 +23,6 @@ declare module "next-auth/jwt" {
     memberId?: string;
     memberType?: MemberType;
     adminAccessLevel?: number;
+    officerRole?: OfficerRole | null;
   }
 }

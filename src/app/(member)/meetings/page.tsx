@@ -2,6 +2,7 @@ import { listAllMeetings } from "@/server/actions/meetings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MeetingList } from "@/components/meetings/MeetingList";
+import { MeetingForm } from "@/components/meetings/MeetingForm";
 import { requireMember } from "@/lib/permissions";
 import { getAttendanceStats } from "@/server/actions/meetings";
 
@@ -12,14 +13,18 @@ export default async function MemberMeetingsPage() {
   const upcoming = meetings.filter((m) => m.scheduledAt >= now).reverse();
   const past = meetings.filter((m) => m.scheduledAt < now);
   const stats = await getAttendanceStats(me.memberId);
+  const isOfficer = me.memberType === "OFFICER";
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Meetings</h1>
-        <p className="text-sm text-muted-foreground">
-          RSVP to upcoming gatherings and review your attendance history.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Meetings</h1>
+          <p className="text-sm text-muted-foreground">
+            RSVP to upcoming gatherings and review your attendance history.
+          </p>
+        </div>
+        {isOfficer && <MeetingForm />}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">

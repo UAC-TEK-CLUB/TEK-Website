@@ -13,6 +13,4 @@ export type SubmitApplicationInput = z.infer<typeof submitApplicationSchema>;
 export const decideApplicationSchema = z.object({
   clubAppId: z.string().min(1),
   decision: z.enum(["APPROVED", "REJECTED", "WITHDRAWN"]),
-  expectedGraduation: z.coerce.date().optional(),
-  initialPassword: z.string().min(8).optional(),
 });

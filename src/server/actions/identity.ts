@@ -3,27 +3,47 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireMember, requireOfficer } from "@/lib/permissions";
 import {
-  registerMemberSchema,
-  updateProfileSchema,
+  requireMember,
+  requireOfficer,
+  requirePresident,
+} from "@/lib/permissions";
+import {
   assignMentorSchema,
+  completeRegistrationSchema,
   promoteOfficerSchema,
   setMembershipStatusSchema,
+  setOfficerRoleSchema,
+  updateProfileSchema,
 } from "@/lib/validators/identity";
 
-export async function registerMember(raw: unknown) {
-  const data = registerMemberSchema.parse(raw);
+export async function completeRegistration(raw: unknown) {
+  const data = completeRegistrationSchema.parse(raw);
+
+  const application = await prisma.clubApplication.findUnique({
+    where: { accountSetupToken: data.token },
+    include: { applicant: true },
+  });
+  if (!application || application.status !== "APPROVED") {
+    throw new Error("This setup link is invalid or has already been used.");
+  }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
 
-  return prisma.$transaction(async (tx) => {
-    const member = await tx.member.create({
+  const member = await prisma.$transaction(async (tx) => {
+    const existing = await tx.member.findUnique({
+      where: { universityId: application.applicant.universityId },
+    });
+    if (existing) {
+      throw new Error("An account already exists for this university ID.");
+    }
+
+    const created = await tx.member.create({
       data: {
-        universityId: data.universityId,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        universityId: application.applicant.universityId,
+        email: application.applicant.email,
+        firstName: application.applicant.firstName,
+        lastName: application.applicant.lastName,
         passwordHash,
         memberType: "REGULAR",
         membershipStatus: "ACTIVE",
@@ -32,13 +52,23 @@ export async function registerMember(raw: unknown) {
 
     await tx.regularMember.create({
       data: {
-        memberId: member.memberId,
+        memberId: created.memberId,
         expectedGraduation: data.expectedGraduation,
       },
     });
 
-    return { memberId: member.memberId };
+    await tx.clubApplication.update({
+      where: { clubAppId: application.clubAppId },
+      data: { accountSetupToken: null },
+    });
+
+    return created;
   });
+
+  revalidatePath("/admin/applicants");
+  revalidatePath("/admin/members");
+
+  return { universityId: member.universityId };
 }
 
 export async function updateMemberProfile(raw: unknown) {
@@ -84,7 +114,7 @@ export async function assignMentor(raw: unknown) {
 }
 
 export async function promoteToOfficer(raw: unknown) {
-  await requireOfficer(3);
+  await requirePresident();
   const data = promoteOfficerSchema.parse(raw);
 
   await prisma.$transaction(async (tx) => {
@@ -94,8 +124,12 @@ export async function promoteToOfficer(raw: unknown) {
       create: {
         memberId: data.memberId,
         adminAccessLevel: data.adminAccessLevel,
+        officerRole: data.officerRole,
       },
-      update: { adminAccessLevel: data.adminAccessLevel },
+      update: {
+        adminAccessLevel: data.adminAccessLevel,
+        officerRole: data.officerRole,
+      },
     });
     await tx.member.update({
       where: { memberId: data.memberId },
@@ -107,7 +141,7 @@ export async function promoteToOfficer(raw: unknown) {
 }
 
 export async function demoteToRegular(memberId: string, expectedGraduation: Date) {
-  await requireOfficer(3);
+  await requirePresident();
 
   await prisma.$transaction(async (tx) => {
     await tx.clubOfficer.deleteMany({ where: { memberId } });
@@ -123,6 +157,25 @@ export async function demoteToRegular(memberId: string, expectedGraduation: Date
   });
 
   revalidatePath("/admin/members");
+}
+
+export async function setOfficerRole(raw: unknown) {
+  const me = await requirePresident();
+  const data = setOfficerRoleSchema.parse(raw);
+
+  if (data.memberId === me.memberId && data.officerRole !== "PRESIDENT") {
+    throw new Error(
+      "The president can't demote themselves. Promote another officer to president first."
+    );
+  }
+
+  await prisma.clubOfficer.update({
+    where: { memberId: data.memberId },
+    data: { officerRole: data.officerRole },
+  });
+
+  revalidatePath("/admin/members");
+  revalidatePath("/dashboard");
 }
 
 export async function setMembershipStatus(raw: unknown) {

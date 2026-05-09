@@ -1,14 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { submitApplication } from "@/server/actions/recruitment";
+import { AUTO_ELIGIBLE_MAJORS_DISPLAY } from "@/lib/policy/autoAccept";
 
 export function ApplicationForm() {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -17,7 +20,7 @@ export function ApplicationForm() {
     setError(null);
     startTransition(async () => {
       try {
-        await submitApplication({
+        const result = await submitApplication({
           universityId: formData.get("universityId"),
           firstName: formData.get("firstName"),
           lastName: formData.get("lastName"),
@@ -25,6 +28,11 @@ export function ApplicationForm() {
           major: formData.get("major"),
           codingExperience: formData.get("codingExperience"),
         });
+
+        if (result.accepted) {
+          router.push(result.registerUrl);
+          return;
+        }
         setSubmitted(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Submission failed.");
@@ -34,11 +42,13 @@ export function ApplicationForm() {
 
   if (submitted) {
     return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-900">
-        <CheckCircle2 className="mx-auto mb-2 h-8 w-8" />
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-red-950 dark:border-red-900 dark:bg-red-950/30 dark:text-red-50">
+        <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-primary" />
         <p className="font-semibold">Application received.</p>
         <p className="mt-1 text-sm">
-          We&apos;ll review your application and email you within a week.
+          We just sent a confirmation to your email. An officer will review your
+          application within a week and email you a link to set up your account if
+          approved.
         </p>
       </div>
     );
@@ -46,6 +56,17 @@ export function ApplicationForm() {
 
   return (
     <form action={onSubmit} className="space-y-4">
+      <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+        <p>
+          Applicants majoring in{" "}
+          <span className="font-medium text-foreground">
+            {AUTO_ELIGIBLE_MAJORS_DISPLAY.join(", ")}
+          </span>{" "}
+          are auto-accepted and can set up their account right away. All other
+          majors are reviewed by an officer.
+        </p>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="firstName">First name</Label>
@@ -66,7 +87,7 @@ export function ApplicationForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="major">Major</Label>
-        <Input id="major" name="major" placeholder="e.g. Computer Science" required />
+        <Input id="major" name="major" placeholder="e.g. Information Systems" required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="codingExperience">Coding experience</Label>

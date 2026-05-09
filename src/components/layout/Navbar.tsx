@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Code2, LogIn } from "lucide-react";
+import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { auth, signOut } from "@/lib/auth";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 
 export async function Navbar() {
   const session = await auth();
@@ -9,15 +10,18 @@ export async function Navbar() {
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur">
       <div className="container flex h-14 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <Code2 className="h-5 w-5 text-primary" />
-          <span>TEK Club</span>
+        <Link href="/" className="flex items-center gap-3 font-semibold">
+          <BrandLogo priority />
+          <span className="leading-tight">UAC TEK Club</span>
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm md:flex">
           <Link href="/" className="text-muted-foreground hover:text-foreground">Home</Link>
           <Link href="/about" className="text-muted-foreground hover:text-foreground">About</Link>
           <Link href="/labs" className="text-muted-foreground hover:text-foreground">Labs</Link>
+          <Link href="/tutoring" className="text-muted-foreground hover:text-foreground">
+            Tutoring videos
+          </Link>
           <Link href="/apply" className="text-muted-foreground hover:text-foreground">Apply</Link>
         </nav>
 

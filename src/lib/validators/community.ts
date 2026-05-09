@@ -15,12 +15,12 @@ export const sendMessageSchema = z.object({
   content: z.string().min(1).max(2000),
 });
 
-export const scheduleTutoringSchema = z.object({
-  studentId: z.string().min(1),
-  subject: z.string().min(2).max(120),
-  scheduledAt: z.coerce.date(),
-  durationMins: z.coerce.number().int().min(15).max(240).default(60),
+export const addVideoSchema = z.object({
+  title: z.string().min(2).max(200),
+  description: z.string().max(2000).optional().nullable(),
+  videoUrl: z.string().url(),
 });
+export type AddVideoInput = z.infer<typeof addVideoSchema>;
 
 export const recordHealthLogSchema = z.object({
   metricName: z.string().min(1).max(80),

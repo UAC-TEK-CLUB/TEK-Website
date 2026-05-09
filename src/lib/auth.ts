@@ -4,7 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import type { MemberType } from "@prisma/client";
+import type { MemberType, OfficerRole } from "@prisma/client";
 
 const credentialsSchema = z.object({
   universityId: z.string().min(1),
@@ -42,6 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: `${member.firstName} ${member.lastName}`,
           memberType: member.memberType,
           adminAccessLevel: member.officerProfile?.adminAccessLevel ?? 0,
+          officerRole: member.officerProfile?.officerRole ?? null,
         };
       },
     }),
@@ -52,6 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.memberId = user.id;
         token.memberType = (user as { memberType?: MemberType }).memberType;
         token.adminAccessLevel = (user as { adminAccessLevel?: number }).adminAccessLevel ?? 0;
+        token.officerRole = (user as { officerRole?: OfficerRole | null }).officerRole ?? null;
       }
       return token;
     },
@@ -60,6 +62,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.memberId = token.memberId as string;
         session.user.memberType = token.memberType as MemberType;
         session.user.adminAccessLevel = (token.adminAccessLevel as number) ?? 0;
+        session.user.officerRole = (token.officerRole as OfficerRole | null) ?? null;
       }
       return session;
     },

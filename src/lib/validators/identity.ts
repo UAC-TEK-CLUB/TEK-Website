@@ -1,14 +1,11 @@
 import { z } from "zod";
 
-export const registerMemberSchema = z.object({
-  universityId: z.string().min(2).max(32),
-  email: z.string().email(),
-  firstName: z.string().min(1).max(60),
-  lastName: z.string().min(1).max(60),
+export const completeRegistrationSchema = z.object({
+  token: z.string().min(1),
   password: z.string().min(8).max(128),
   expectedGraduation: z.coerce.date(),
 });
-export type RegisterMemberInput = z.infer<typeof registerMemberSchema>;
+export type CompleteRegistrationInput = z.infer<typeof completeRegistrationSchema>;
 
 export const updateProfileSchema = z.object({
   firstName: z.string().min(1).max(60),
@@ -26,6 +23,12 @@ export const assignMentorSchema = z.object({
 export const promoteOfficerSchema = z.object({
   memberId: z.string().min(1),
   adminAccessLevel: z.coerce.number().int().min(1).max(5),
+  officerRole: z.enum(["PRESIDENT", "SUPERVISOR", "OFFICER"]).default("OFFICER"),
+});
+
+export const setOfficerRoleSchema = z.object({
+  memberId: z.string().min(1),
+  officerRole: z.enum(["PRESIDENT", "SUPERVISOR", "OFFICER"]),
 });
 
 export const setMembershipStatusSchema = z.object({

@@ -10,7 +10,6 @@ const PROTECTED_PREFIXES = [
   "/bulletin",
   "/gallery",
   "/messages",
-  "/tutoring",
   "/admin",
 ];
 

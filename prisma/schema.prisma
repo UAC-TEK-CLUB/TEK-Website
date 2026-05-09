@@ -52,15 +52,21 @@ model Member {
   galleryUploads   GalleryPhoto[]
   sentMessages     ChatMessage[]      @relation("Sender")
   receivedMessages ChatMessage[]      @relation("Receiver")
-  tutorSessions    TutoringSession[]  @relation("Tutor")
-  studentSessions  TutoringSession[]  @relation("Student")
+  tutoringVideos   TutoringVideo[]
 
   @@map("members")
 }
 
+enum OfficerRole {
+  PRESIDENT
+  SUPERVISOR
+  OFFICER
+}
+
 model ClubOfficer {
-  memberId         String @id @map("member_id")
-  adminAccessLevel Int    @default(1) @map("admin_access_level")
+  memberId         String      @id @map("member_id")
+  adminAccessLevel Int         @default(1) @map("admin_access_level")
+  officerRole      OfficerRole @default(OFFICER) @map("officer_role")
 
   member            Member             @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
   proposalDecisions LabProposal[]      @relation("ReviewedBy")
@@ -112,13 +118,14 @@ enum ApplicationStatus {
 }
 
 model ClubApplication {
-  clubAppId        String            @id @default(cuid()) @map("club_app_id")
-  applicantId      String            @map("applicant_id")
-  visitorId        String?           @map("visitor_id")
-  major            String
-  codingExperience String            @map("coding_experience")
-  status           ApplicationStatus @default(PENDING)
-  submittedAt      DateTime          @default(now()) @map("submitted_at")
+  clubAppId           String            @id @default(cuid()) @map("club_app_id")
+  applicantId         String            @map("applicant_id")
+  visitorId           String?           @map("visitor_id")
+  major               String
+  codingExperience    String            @map("coding_experience")
+  status              ApplicationStatus @default(PENDING)
+  submittedAt         DateTime          @default(now()) @map("submitted_at")
+  accountSetupToken   String?           @unique @map("account_setup_token")
 
   applicant Applicant @relation(fields: [applicantId], references: [universityId], onDelete: Cascade)
   visitor   Visitor?  @relation(fields: [visitorId], references: [visitorId], onDelete: SetNull)
@@ -268,27 +275,25 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
-enum TutoringStatus {
-  SCHEDULED
-  COMPLETED
-  CANCELLED
+enum VideoProvider {
+  YOUTUBE
+  VIMEO
+  OTHER
 }
 
-model TutoringSession {
-  sessionId    String         @id @default(cuid()) @map("session_id")
-  tutorId      String         @map("tutor_id")
-  studentId    String         @map("student_id")
-  subject      String
-  scheduledAt  DateTime       @map("scheduled_at")
-  durationMins Int            @default(60) @map("duration_mins")
-  status       TutoringStatus @default(SCHEDULED)
+model TutoringVideo {
+  videoId     String        @id @default(cuid()) @map("video_id")
+  title       String
+  description String?
+  videoUrl    String        @map("video_url")
+  provider    VideoProvider @default(OTHER)
+  uploaderId  String        @map("uploader_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
 
-  tutor   Member @relation("Tutor",   fields: [tutorId],   references: [memberId], onDelete: Cascade)
-  student Member @relation("Student", fields: [studentId], references: [memberId], onDelete: Cascade)
+  uploader Member @relation(fields: [uploaderId], references: [memberId], onDelete: Cascade)
 
-  @@index([tutorId, scheduledAt])
-  @@index([studentId, scheduledAt])
-  @@map("tutoring_sessions")
+  @@index([createdAt])
+  @@map("tutoring_videos")
 }
 
 // ==========================================================

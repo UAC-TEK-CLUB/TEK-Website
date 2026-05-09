@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, Copy, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -19,19 +17,21 @@ import { decideApplication } from "@/server/actions/recruitment";
 export function ApprovalControls({ clubAppId }: { clubAppId: string }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [registerUrl, setRegisterUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function approve(formData: FormData) {
+  function approve() {
     setError(null);
+    setRegisterUrl(null);
     startTransition(async () => {
       try {
-        const result = await decideApplication({
-          clubAppId,
-          decision: "APPROVED",
-          expectedGraduation: formData.get("expectedGraduation"),
-        });
-        if (result?.tempPassword) setTempPassword(result.tempPassword);
+        const result = await decideApplication({ clubAppId, decision: "APPROVED" });
+        if (result?.registerUrl) {
+          const fullUrl = `${window.location.origin}${result.registerUrl}`;
+          setRegisterUrl(fullUrl);
+          setOpen(true);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Approval failed.");
       }
@@ -49,58 +49,57 @@ export function ApprovalControls({ clubAppId }: { clubAppId: string }) {
     });
   }
 
+  async function copyToClipboard() {
+    if (!registerUrl) return;
+    await navigator.clipboard.writeText(registerUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
     <div className="flex gap-2">
+      <Button size="sm" disabled={pending} onClick={approve}>
+        {pending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
+        Approve
+      </Button>
+      <Button size="sm" variant="outline" disabled={pending} onClick={reject}>
+        <X className="mr-1 h-4 w-4" /> Reject
+      </Button>
+
+      {error && <p className="ml-2 text-sm text-destructive">{error}</p>}
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button size="sm">
-            <Check className="mr-1 h-4 w-4" /> Approve
-          </Button>
+          <span />
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Approve applicant</DialogTitle>
+            <DialogTitle>Applicant approved</DialogTitle>
             <DialogDescription>
-              This creates a Member + RegularMember row in one transaction and issues
-              a temporary password.
+              We just emailed the applicant a one-time setup link. You can also
+              copy it below and share it manually if needed.
             </DialogDescription>
           </DialogHeader>
-          {tempPassword ? (
-            <div className="rounded-md border bg-muted p-4 text-sm">
-              <p className="font-medium">Temporary password (share securely):</p>
-              <p className="mt-2 font-mono">{tempPassword}</p>
-            </div>
-          ) : (
-            <form action={approve} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="expectedGraduation">Expected graduation</Label>
-                <Input
-                  id="expectedGraduation"
-                  name="expectedGraduation"
-                  type="date"
-                  required
-                />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <DialogFooter>
-                <Button type="submit" disabled={pending}>
-                  {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Confirm approval
+          {registerUrl && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <code className="flex-1 truncate rounded-md border bg-muted px-3 py-2 text-xs">
+                  {registerUrl}
+                </code>
+                <Button size="sm" variant="outline" onClick={copyToClipboard}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
-              </DialogFooter>
-            </form>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The link becomes invalid as soon as the applicant uses it.
+              </p>
+            </div>
           )}
+          <DialogFooter>
+            <Button onClick={() => setOpen(false)}>Done</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={reject}
-        disabled={pending}
-      >
-        <X className="mr-1 h-4 w-4" /> Reject
-      </Button>
     </div>
   );
 }

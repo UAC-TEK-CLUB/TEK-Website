@@ -16,34 +16,79 @@ async function main() {
       universityId,
       email,
       firstName: "Founding",
-      lastName: "Officer",
+      lastName: "President",
       passwordHash,
       memberType: "OFFICER",
       membershipStatus: "ACTIVE",
       officerProfile: {
-        create: { adminAccessLevel: 5 },
+        create: { adminAccessLevel: 5, officerRole: "PRESIDENT" },
       },
     },
     include: { officerProfile: true },
   });
 
-  await prisma.lab.upsert({
-    where: { labName: "Web Lab" },
-    update: {},
-    create: {
-      labName: "Web Lab",
-      description: "Frontend and full-stack web engineering.",
-      objective: "Ship student-built web products end-to-end.",
-    },
+  // Make sure an existing seeded record becomes PRESIDENT even if the row was
+  // created before this column existed.
+  await prisma.clubOfficer.update({
+    where: { memberId: officer.memberId },
+    data: { officerRole: "PRESIDENT", adminAccessLevel: 5 },
   });
-  await prisma.lab.upsert({
-    where: { labName: "ML Lab" },
-    update: {},
-    create: {
-      labName: "ML Lab",
-      description: "Applied machine learning and data science.",
-      objective: "Run group projects from notebook to deployment.",
+
+  const labs = [
+    {
+      labName: "Excel Lab",
+      description:
+        "Spreadsheet engineering, financial modeling, and business analytics with Excel and Google Sheets.",
+      objective:
+        "Build practical spreadsheet fluency and ship reusable templates the whole club can use.",
     },
+    {
+      labName: "Stock Lab",
+      description:
+        "Stock price prediction and algorithmic trading — quantitative research, backtesting, and live paper trading.",
+      objective:
+        "Design, backtest, and ship at least one trading strategy each semester.",
+    },
+    {
+      labName: "Fitness App Lab",
+      description:
+        "Mobile and web fitness applications — workout tracking, nutrition, wearables integration.",
+      objective:
+        "Ship a polished fitness app to real users by end of the academic year.",
+    },
+    {
+      labName: "AI Contents Lab",
+      description:
+        "AI content creation tools — generative video, image, copy, and multimodal pipelines.",
+      objective:
+        "Prototype creator-facing AI tooling and publish demos / open-source experiments.",
+    },
+    {
+      labName: "Student Scheduler Lab",
+      description:
+        "A college student scheduling platform — class planning, study sessions, and group coordination.",
+      objective:
+        "Launch a scheduling product real students on campus actually use.",
+    },
+    {
+      labName: "Startup Accelerator Lab",
+      description:
+        "Platform for early-stage student startups — pitches, mentorship matching, milestones, and funding workflows.",
+      objective:
+        "Build the operating system for the campus startup ecosystem.",
+    },
+  ];
+
+  for (const lab of labs) {
+    await prisma.lab.upsert({
+      where: { labName: lab.labName },
+      update: { description: lab.description, objective: lab.objective },
+      create: lab,
+    });
+  }
+
+  await prisma.lab.deleteMany({
+    where: { labName: { in: ["Web Lab", "ML Lab"] } },
   });
 
   await prisma.meeting.upsert({

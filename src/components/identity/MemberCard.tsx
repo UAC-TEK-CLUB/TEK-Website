@@ -23,6 +23,7 @@ export function MemberCard({ member }: Props) {
         <div className="flex flex-col items-end gap-1">
           <RoleBadge
             memberType={member.memberType}
+            officerRole={member.officerProfile?.officerRole}
             level={member.officerProfile?.adminAccessLevel}
           />
           <MembershipStatusBadge status={member.membershipStatus} />

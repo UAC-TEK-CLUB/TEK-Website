@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMember, requireOfficer } from "@/lib/permissions";
 import {
+  addVideoSchema,
   createPostSchema,
-  scheduleTutoringSchema,
   sendMessageSchema,
   uploadPhotoSchema,
 } from "@/lib/validators/community";
+import { parseVideoUrl } from "@/lib/videoEmbed";
 
 // ----- Bulletin Board -----
 
@@ -160,63 +161,35 @@ export async function listChatThreads(memberId: string) {
   return Array.from(threadsByPeer.values());
 }
 
-// ----- Tutoring -----
+// ----- Tutoring Video Library -----
 
-export async function scheduleTutoring(raw: unknown) {
-  const me = await requireMember();
-  const data = scheduleTutoringSchema.parse(raw);
+export async function addTutoringVideo(raw: unknown) {
+  const officer = await requireOfficer(1);
+  const data = addVideoSchema.parse(raw);
+  const parsed = parseVideoUrl(data.videoUrl);
 
-  const conflict = await prisma.tutoringSession.findFirst({
-    where: {
-      OR: [{ tutorId: me.memberId }, { studentId: me.memberId }],
-      status: "SCHEDULED",
-      scheduledAt: {
-        gte: new Date(data.scheduledAt.getTime() - 30 * 60 * 1000),
-        lte: new Date(data.scheduledAt.getTime() + 30 * 60 * 1000),
-      },
-    },
-  });
-  if (conflict) {
-    throw new Error("Conflicting tutoring session within 30 minutes.");
-  }
-
-  const session = await prisma.tutoringSession.create({
+  const video = await prisma.tutoringVideo.create({
     data: {
-      tutorId: me.memberId,
-      studentId: data.studentId,
-      subject: data.subject,
-      scheduledAt: data.scheduledAt,
-      durationMins: data.durationMins,
+      title: data.title,
+      description: data.description ?? null,
+      videoUrl: data.videoUrl,
+      provider: parsed.provider,
+      uploaderId: officer.memberId,
     },
   });
   revalidatePath("/tutoring");
-  return session;
+  return video;
 }
 
-export async function completeTutoring(sessionId: string) {
-  const me = await requireMember();
-  const session = await prisma.tutoringSession.findUnique({ where: { sessionId } });
-  if (!session) return;
-  if (session.tutorId !== me.memberId) {
-    throw new Error("Only the tutor can complete a session.");
-  }
-  await prisma.tutoringSession.update({
-    where: { sessionId },
-    data: { status: "COMPLETED" },
-  });
+export async function deleteTutoringVideo(videoId: string) {
+  await requireOfficer(1);
+  await prisma.tutoringVideo.delete({ where: { videoId } });
   revalidatePath("/tutoring");
 }
 
-export async function cancelTutoring(sessionId: string) {
-  const me = await requireMember();
-  const session = await prisma.tutoringSession.findUnique({ where: { sessionId } });
-  if (!session) return;
-  if (session.tutorId !== me.memberId && session.studentId !== me.memberId) {
-    throw new Error("Only the tutor or student can cancel.");
-  }
-  await prisma.tutoringSession.update({
-    where: { sessionId },
-    data: { status: "CANCELLED" },
+export async function listTutoringVideos() {
+  return prisma.tutoringVideo.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { uploader: true },
   });
-  revalidatePath("/tutoring");
 }

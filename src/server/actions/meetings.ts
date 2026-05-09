@@ -44,7 +44,10 @@ export async function updateMeeting(raw: unknown) {
 export async function deleteMeeting(meetingId: string) {
   await requireOfficer(3);
   await prisma.meeting.delete({ where: { meetingId } });
+  revalidatePath("/meetings");
+  revalidatePath(`/meetings/${meetingId}`);
   revalidatePath("/admin/meetings");
+  revalidatePath(`/admin/meetings/${meetingId}`);
 }
 
 export async function recordAttendance(raw: unknown) {

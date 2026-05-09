@@ -1,9 +1,13 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { CalendarDays, MapPin } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { AttendanceReport } from "@/components/meetings/AttendanceReport";
+import { DeleteMeetingButton } from "@/components/meetings/DeleteMeetingButton";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function AdminMeetingDetail({
@@ -11,6 +15,10 @@ export default async function AdminMeetingDetail({
 }: {
   params: { meetingId: string };
 }) {
+  const user = await getCurrentUser();
+  const canDeleteMeeting =
+    user?.memberType === "OFFICER" && (user.adminAccessLevel ?? 0) >= 3;
+
   const meeting = await prisma.meeting.findUnique({
     where: { meetingId: params.meetingId },
     include: { attendance: true },
@@ -30,9 +38,16 @@ export default async function AdminMeetingDetail({
 
   return (
     <div className="max-w-3xl space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/admin/meetings">← All meetings</Link>
+        </Button>
+        {canDeleteMeeting && <DeleteMeetingButton meetingId={meeting.meetingId} />}
+      </div>
+
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-2xl">{meeting.title}</CardTitle>
             <Badge>{meeting.type.replace("_", " ")}</Badge>
           </div>

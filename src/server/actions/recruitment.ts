@@ -1,14 +1,20 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { requireOfficer } from "@/lib/permissions";
+import { requireExecutive, requireOfficer } from "@/lib/permissions";
 import {
   submitApplicationSchema,
   decideApplicationSchema,
 } from "@/lib/validators/recruitment";
+import { isAutoEligible } from "@/lib/policy/autoAccept";
+import { sendMail } from "@/lib/mail/transport";
+import {
+  acceptanceEmail,
+  pendingEmail,
+  rejectionEmail,
+} from "@/lib/mail/templates";
 import type { ApplicationStatus } from "@prisma/client";
 
 const VISITOR_COOKIE = "tek_visitor_id";
@@ -38,8 +44,9 @@ export async function recordVisit() {
 export async function submitApplication(raw: unknown) {
   const data = submitApplicationSchema.parse(raw);
   const visitorId = await recordVisit();
+  const accepted = isAutoEligible(data.major);
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.applicant.upsert({
       where: { universityId: data.universityId },
       update: {
@@ -61,15 +68,38 @@ export async function submitApplication(raw: unknown) {
         visitorId,
         major: data.major,
         codingExperience: data.codingExperience,
+        status: accepted ? "APPROVED" : "PENDING",
+        accountSetupToken: accepted ? crypto.randomUUID() : null,
       },
     });
 
-    return { clubAppId: application.clubAppId };
+    return application;
   });
+
+  revalidatePath("/admin/applicants");
+
+  if (accepted && result.accountSetupToken) {
+    const registerPath = `/register?token=${result.accountSetupToken}`;
+    await sendMail(
+      acceptanceEmail({
+        to: data.email,
+        firstName: data.firstName,
+        registerPath,
+        autoAccepted: true,
+      })
+    );
+    return {
+      accepted: true as const,
+      registerUrl: registerPath,
+    };
+  }
+
+  await sendMail(pendingEmail({ to: data.email, firstName: data.firstName }));
+  return { accepted: false as const };
 }
 
 export async function listApplications(filters?: { status?: ApplicationStatus }) {
-  await requireOfficer();
+  await requireExecutive();
   return prisma.clubApplication.findMany({
     where: filters?.status ? { status: filters.status } : undefined,
     include: { applicant: true, visitor: true },
@@ -78,7 +108,7 @@ export async function listApplications(filters?: { status?: ApplicationStatus })
 }
 
 export async function decideApplication(raw: unknown) {
-  await requireOfficer(2);
+  await requireExecutive();
   const data = decideApplicationSchema.parse(raw);
 
   const application = await prisma.clubApplication.findUnique({
@@ -93,50 +123,43 @@ export async function decideApplication(raw: unknown) {
       data: { status: data.decision },
     });
     revalidatePath("/admin/applicants");
+
+    if (data.decision === "REJECTED") {
+      await sendMail(
+        rejectionEmail({
+          to: application.applicant.email,
+          firstName: application.applicant.firstName,
+        })
+      );
+    }
     return;
   }
 
-  if (!data.expectedGraduation) {
-    throw new Error("Expected graduation is required for approvals.");
-  }
+  const accountSetupToken = application.accountSetupToken ?? crypto.randomUUID();
+  const registerPath = `/register?token=${accountSetupToken}`;
 
-  const tempPassword = data.initialPassword ?? generateTempPassword();
-  const passwordHash = await bcrypt.hash(tempPassword, 10);
-
-  await prisma.$transaction(async (tx) => {
-    const member = await tx.member.upsert({
-      where: { universityId: application.applicant.universityId },
-      update: {},
-      create: {
-        universityId: application.applicant.universityId,
-        email: application.applicant.email,
-        firstName: application.applicant.firstName,
-        lastName: application.applicant.lastName,
-        passwordHash,
-        memberType: "REGULAR",
-        membershipStatus: "ACTIVE",
-      },
-    });
-
-    await tx.regularMember.upsert({
-      where: { memberId: member.memberId },
-      create: {
-        memberId: member.memberId,
-        expectedGraduation: data.expectedGraduation!,
-      },
-      update: { expectedGraduation: data.expectedGraduation! },
-    });
-
-    await tx.clubApplication.update({
-      where: { clubAppId: data.clubAppId },
-      data: { status: "APPROVED" },
-    });
+  await prisma.clubApplication.update({
+    where: { clubAppId: data.clubAppId },
+    data: {
+      status: "APPROVED",
+      accountSetupToken,
+    },
   });
 
   revalidatePath("/admin/applicants");
-  revalidatePath("/admin/members");
 
-  return { tempPassword };
+  await sendMail(
+    acceptanceEmail({
+      to: application.applicant.email,
+      firstName: application.applicant.firstName,
+      registerPath,
+      autoAccepted: false,
+    })
+  );
+
+  return {
+    registerUrl: registerPath,
+  };
 }
 
 export async function visitorAnalytics() {
@@ -148,10 +171,4 @@ export async function visitorAnalytics() {
     prisma.visitor.count({ where: { applications: { some: {} } } }),
   ]);
   return { total, last30, withApp };
-}
-
-function generateTempPassword() {
-  return Array.from(crypto.getRandomValues(new Uint8Array(9)))
-    .map((b) => "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"[b % 54])
-    .join("");
 }
