@@ -3,13 +3,8 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { requireMember, requireSiteAdmin } from "@/lib/permissions";
 import {
-  requireMember,
-  requireOfficer,
-  requirePresident,
-} from "@/lib/permissions";
-import {
-  assignMentorSchema,
   completeRegistrationSchema,
   promoteOfficerSchema,
   setMembershipStatusSchema,
@@ -18,7 +13,18 @@ import {
 } from "@/lib/validators/identity";
 
 export async function completeRegistration(raw: unknown) {
-  const data = completeRegistrationSchema.parse(raw);
+  const parsed = completeRegistrationSchema.safeParse(raw);
+  if (!parsed.success) {
+    const fe = parsed.error.flatten().fieldErrors;
+    const msg =
+      fe.username?.[0] ??
+      fe.password?.[0] ??
+      fe.expectedGraduation?.[0] ??
+      fe.token?.[0] ??
+      "Invalid registration data.";
+    throw new Error(msg);
+  }
+  const data = parsed.data;
 
   const application = await prisma.clubApplication.findUnique({
     where: { accountSetupToken: data.token },
@@ -31,15 +37,23 @@ export async function completeRegistration(raw: unknown) {
   const passwordHash = await bcrypt.hash(data.password, 10);
 
   const member = await prisma.$transaction(async (tx) => {
-    const existing = await tx.member.findUnique({
+    const existingBySchool = await tx.member.findUnique({
       where: { universityId: application.applicant.universityId },
     });
-    if (existing) {
-      throw new Error("An account already exists for this university ID.");
+    if (existingBySchool) {
+      throw new Error("An account already exists for this application.");
+    }
+
+    const usernameTaken = await tx.member.findUnique({
+      where: { username: data.username },
+    });
+    if (usernameTaken) {
+      throw new Error("That username is already taken. Pick another.");
     }
 
     const created = await tx.member.create({
       data: {
+        username: data.username,
         universityId: application.applicant.universityId,
         email: application.applicant.email,
         firstName: application.applicant.firstName,
@@ -68,7 +82,7 @@ export async function completeRegistration(raw: unknown) {
   revalidatePath("/admin/applicants");
   revalidatePath("/admin/members");
 
-  return { universityId: member.universityId };
+  return { username: member.username };
 }
 
 export async function updateMemberProfile(raw: unknown) {
@@ -96,26 +110,10 @@ export async function updateMemberProfile(raw: unknown) {
   revalidatePath("/profile");
 }
 
-export async function assignMentor(raw: unknown) {
-  await requireOfficer();
-  const data = assignMentorSchema.parse(raw);
-
-  if (data.mentorId === data.menteeId) {
-    throw new Error("A member cannot mentor themselves.");
-  }
-
-  await prisma.member.update({
-    where: { memberId: data.menteeId },
-    data: { mentorId: data.mentorId },
-  });
-
-  revalidatePath("/admin/members");
-  revalidatePath("/profile");
-}
-
 export async function promoteToOfficer(raw: unknown) {
-  await requirePresident();
+  await requireSiteAdmin();
   const data = promoteOfficerSchema.parse(raw);
+  const adminAccessLevel = data.officerRole === "LEADER" ? 2 : 5;
 
   await prisma.$transaction(async (tx) => {
     await tx.regularMember.deleteMany({ where: { memberId: data.memberId } });
@@ -123,11 +121,11 @@ export async function promoteToOfficer(raw: unknown) {
       where: { memberId: data.memberId },
       create: {
         memberId: data.memberId,
-        adminAccessLevel: data.adminAccessLevel,
+        adminAccessLevel,
         officerRole: data.officerRole,
       },
       update: {
-        adminAccessLevel: data.adminAccessLevel,
+        adminAccessLevel,
         officerRole: data.officerRole,
       },
     });
@@ -141,9 +139,10 @@ export async function promoteToOfficer(raw: unknown) {
 }
 
 export async function demoteToRegular(memberId: string, expectedGraduation: Date) {
-  await requirePresident();
+  await requireSiteAdmin();
 
   await prisma.$transaction(async (tx) => {
+    await tx.lab.updateMany({ where: { leaderMemberId: memberId }, data: { leaderMemberId: null } });
     await tx.clubOfficer.deleteMany({ where: { memberId } });
     await tx.regularMember.upsert({
       where: { memberId },
@@ -160,18 +159,29 @@ export async function demoteToRegular(memberId: string, expectedGraduation: Date
 }
 
 export async function setOfficerRole(raw: unknown) {
-  const me = await requirePresident();
+  const me = await requireSiteAdmin();
   const data = setOfficerRoleSchema.parse(raw);
 
-  if (data.memberId === me.memberId && data.officerRole !== "PRESIDENT") {
-    throw new Error(
-      "The president can't demote themselves. Promote another officer to president first."
-    );
+  const current = await prisma.clubOfficer.findUnique({
+    where: { memberId: data.memberId },
+    select: { officerRole: true },
+  });
+  if (current?.officerRole === "PRESIDENT" && data.officerRole !== "PRESIDENT") {
+    const otherPresidents = await prisma.clubOfficer.count({
+      where: { officerRole: "PRESIDENT", NOT: { memberId: data.memberId } },
+    });
+    if (otherPresidents < 1) {
+      throw new Error(
+        "Assign another president before removing the last president role from this person."
+      );
+    }
   }
+
+  const adminAccessLevel = data.officerRole === "LEADER" ? 2 : 5;
 
   await prisma.clubOfficer.update({
     where: { memberId: data.memberId },
-    data: { officerRole: data.officerRole },
+    data: { officerRole: data.officerRole, adminAccessLevel },
   });
 
   revalidatePath("/admin/members");
@@ -179,7 +189,7 @@ export async function setOfficerRole(raw: unknown) {
 }
 
 export async function setMembershipStatus(raw: unknown) {
-  await requireOfficer(2);
+  await requireSiteAdmin();
   const data = setMembershipStatusSchema.parse(raw);
 
   await prisma.member.update({

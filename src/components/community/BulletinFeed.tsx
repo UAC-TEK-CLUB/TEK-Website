@@ -8,18 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { deletePost, togglePinPost } from "@/server/actions/community";
 import { formatDateTime, initials } from "@/lib/utils";
+import { BulletinContent } from "@/components/community/BulletinContent";
 import type { BulletinPost, Member } from "@prisma/client";
 
-type Row = BulletinPost & { author: Member };
+type Row = BulletinPost & {
+  author: Pick<Member, "firstName" | "lastName">;
+  lab: { labName: string } | null;
+};
 
 export function BulletinFeed({
   posts,
   currentMemberId,
-  isOfficer,
+  isSiteAdmin,
+  hideLabBadge,
 }: {
   posts: Row[];
   currentMemberId: string;
-  isOfficer: boolean;
+  isSiteAdmin: boolean;
+  /** When every post is already scoped to one lab page, hide the redundant lab name pill. */
+  hideLabBadge?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -47,9 +54,14 @@ export function BulletinFeed({
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {!hideLabBadge && post.lab && (
+                <Badge variant="outline" className="text-xs">
+                  Lab: {post.lab.labName}
+                </Badge>
+              )}
               {post.pinned && <Badge>Pinned</Badge>}
-              {isOfficer && (
+              {isSiteAdmin && !post.labId && (
                 <Button
                   size="icon"
                   variant="ghost"
@@ -63,7 +75,7 @@ export function BulletinFeed({
                   {post.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
                 </Button>
               )}
-              {(post.authorId === currentMemberId || isOfficer) && (
+              {(post.authorId === currentMemberId || isSiteAdmin) && (
                 <Button
                   size="icon"
                   variant="ghost"
@@ -79,8 +91,8 @@ export function BulletinFeed({
               )}
             </div>
           </CardHeader>
-          <CardContent className="whitespace-pre-wrap text-sm">
-            {post.content}
+          <CardContent className="text-sm">
+            <BulletinContent text={post.content} linkKeyPrefix={post.postId} />
           </CardContent>
         </Card>
       ))}

@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, MapPin } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/permissions";
+import { getCurrentUser, isSiteAdmin } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AttendanceReport } from "@/components/meetings/AttendanceReport";
 import { DeleteMeetingButton } from "@/components/meetings/DeleteMeetingButton";
+import { EditMeetingDialog } from "@/components/meetings/EditMeetingDialog";
+import { MeetingNotesBox } from "@/components/meetings/MeetingNotesBox";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function AdminMeetingDetail({
@@ -16,8 +18,9 @@ export default async function AdminMeetingDetail({
   params: { meetingId: string };
 }) {
   const user = await getCurrentUser();
-  const canDeleteMeeting =
-    user?.memberType === "OFFICER" && (user.adminAccessLevel ?? 0) >= 3;
+  const siteAdmin = isSiteAdmin(user);
+  const canDeleteMeeting = siteAdmin;
+  const canEditMeeting = siteAdmin;
 
   const meeting = await prisma.meeting.findUnique({
     where: { meetingId: params.meetingId },
@@ -42,6 +45,18 @@ export default async function AdminMeetingDetail({
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/meetings">← All meetings</Link>
         </Button>
+        {canEditMeeting && (
+          <EditMeetingDialog
+            meeting={{
+              meetingId: meeting.meetingId,
+              title: meeting.title,
+              scheduledAtIso: meeting.scheduledAt.toISOString(),
+              type: meeting.type,
+              location: meeting.location,
+              notes: meeting.notes,
+            }}
+          />
+        )}
         {canDeleteMeeting && <DeleteMeetingButton meetingId={meeting.meetingId} />}
       </div>
 
@@ -60,6 +75,9 @@ export default async function AdminMeetingDetail({
             <p className="inline-flex items-center gap-2">
               <MapPin className="h-4 w-4" /> {meeting.location}
             </p>
+          )}
+          {meeting.notes && (
+            <MeetingNotesBox notes={meeting.notes} meetingId={meeting.meetingId} />
           )}
         </CardContent>
       </Card>

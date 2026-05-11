@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MeetingList } from "@/components/meetings/MeetingList";
 import { MeetingForm } from "@/components/meetings/MeetingForm";
-import { requireMember } from "@/lib/permissions";
+import { isSiteAdmin, requireMember } from "@/lib/permissions";
 import { getAttendanceStats } from "@/server/actions/meetings";
 
 export default async function MemberMeetingsPage() {
@@ -13,7 +13,8 @@ export default async function MemberMeetingsPage() {
   const upcoming = meetings.filter((m) => m.scheduledAt >= now).reverse();
   const past = meetings.filter((m) => m.scheduledAt < now);
   const stats = await getAttendanceStats(me.memberId);
-  const isOfficer = me.memberType === "OFFICER";
+  const siteAdmin = isSiteAdmin(me);
+  const meetingDetailPrefix = siteAdmin ? "/admin/meetings" : "/meetings";
 
   return (
     <div className="space-y-6">
@@ -24,7 +25,7 @@ export default async function MemberMeetingsPage() {
             RSVP to upcoming gatherings and review your attendance history.
           </p>
         </div>
-        {isOfficer && <MeetingForm />}
+        {siteAdmin && <MeetingForm />}
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -51,10 +52,10 @@ export default async function MemberMeetingsPage() {
           <TabsTrigger value="past">Past ({past.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="upcoming">
-          <MeetingList meetings={upcoming} />
+          <MeetingList meetings={upcoming} hrefPrefix={meetingDetailPrefix} />
         </TabsContent>
         <TabsContent value="past">
-          <MeetingList meetings={past} />
+          <MeetingList meetings={past} hrefPrefix={meetingDetailPrefix} />
         </TabsContent>
       </Tabs>
     </div>

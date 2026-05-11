@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireOfficer } from "@/lib/permissions";
+import { requireSiteAdmin } from "@/lib/permissions";
 import { recordHealthLogSchema } from "@/lib/validators/community";
 
 export async function recordHealthLog(raw: unknown) {
-  const officer = await requireOfficer(1);
+  const officer = await requireSiteAdmin();
   const data = recordHealthLogSchema.parse(raw);
   const log = await prisma.websiteHealthLog.create({
     data: {
@@ -23,7 +23,7 @@ export async function listHealthLogs(opts?: {
   metric?: string;
   since?: Date;
 }) {
-  await requireOfficer(1);
+  await requireSiteAdmin();
   return prisma.websiteHealthLog.findMany({
     where: {
       metricName: opts?.metric,

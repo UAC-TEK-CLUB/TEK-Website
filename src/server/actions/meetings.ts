@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireMember, requireOfficer } from "@/lib/permissions";
+import { requireMember, requireSiteAdmin, isSiteAdmin } from "@/lib/permissions";
 import {
   createMeetingSchema,
   recordAttendanceSchema,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/validators/meetings";
 
 export async function createMeeting(raw: unknown) {
-  await requireOfficer(2);
+  await requireSiteAdmin();
   const data = createMeetingSchema.parse(raw);
   const meeting = await prisma.meeting.create({
     data: {
@@ -18,15 +18,19 @@ export async function createMeeting(raw: unknown) {
       scheduledAt: data.scheduledAt,
       type: data.type,
       location: data.location ?? null,
+      notes: data.notes ?? null,
     },
   });
   revalidatePath("/meetings");
   revalidatePath("/admin/meetings");
+  revalidatePath(`/meetings/${meeting.meetingId}`);
+  revalidatePath(`/admin/meetings/${meeting.meetingId}`);
+  revalidatePath("/dashboard");
   return meeting;
 }
 
 export async function updateMeeting(raw: unknown) {
-  await requireOfficer(2);
+  await requireSiteAdmin();
   const data = updateMeetingSchema.parse(raw);
   await prisma.meeting.update({
     where: { meetingId: data.meetingId },
@@ -35,27 +39,32 @@ export async function updateMeeting(raw: unknown) {
       scheduledAt: data.scheduledAt,
       type: data.type,
       location: data.location ?? null,
+      notes: data.notes ?? null,
     },
   });
   revalidatePath("/meetings");
   revalidatePath("/admin/meetings");
+  revalidatePath(`/meetings/${data.meetingId}`);
+  revalidatePath(`/admin/meetings/${data.meetingId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function deleteMeeting(meetingId: string) {
-  await requireOfficer(3);
+  await requireSiteAdmin();
   await prisma.meeting.delete({ where: { meetingId } });
   revalidatePath("/meetings");
   revalidatePath(`/meetings/${meetingId}`);
   revalidatePath("/admin/meetings");
   revalidatePath(`/admin/meetings/${meetingId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function recordAttendance(raw: unknown) {
   const me = await requireMember();
   const data = recordAttendanceSchema.parse(raw);
 
-  const isOfficer = me.memberType === "OFFICER" && (me.adminAccessLevel ?? 0) >= 1;
-  if (data.memberId !== me.memberId && !isOfficer) {
+  const canRecordOthers = isSiteAdmin(me);
+  if (data.memberId !== me.memberId && !canRecordOthers) {
     throw new Error("You can only record your own attendance.");
   }
 
@@ -79,7 +88,7 @@ export async function recordAttendance(raw: unknown) {
 }
 
 export async function bulkMarkAbsent(meetingId: string) {
-  await requireOfficer(2);
+  await requireSiteAdmin();
   const allMembers = await prisma.member.findMany({
     where: { membershipStatus: "ACTIVE" },
     select: { memberId: true },

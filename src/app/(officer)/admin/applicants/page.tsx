@@ -3,6 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ApplicantTable } from "@/components/recruitment/ApplicantTable";
 import { VisitorAnalyticsCard } from "@/components/recruitment/VisitorAnalyticsCard";
 import { listApplications, visitorAnalytics } from "@/server/actions/recruitment";
+import { prisma } from "@/lib/prisma";
 
 export default async function AdminApplicantsPage() {
   const [pending, approved, rejected, analytics] = await Promise.all([
@@ -11,6 +12,17 @@ export default async function AdminApplicantsPage() {
     listApplications({ status: "REJECTED" }),
     visitorAnalytics(),
   ]);
+
+  const allApps = [...pending, ...approved, ...rejected];
+  const universityIds = [...new Set(allApps.map((r) => r.applicant.universityId))];
+  const existingMembers =
+    universityIds.length === 0
+      ? []
+      : await prisma.member.findMany({
+          where: { universityId: { in: universityIds } },
+          select: { universityId: true },
+        });
+  const registeredUniversityIds = existingMembers.map((m) => m.universityId);
 
   return (
     <div className="space-y-6">
@@ -35,13 +47,13 @@ export default async function AdminApplicantsPage() {
               <TabsTrigger value="rejected">Rejected ({rejected.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="pending">
-              <ApplicantTable rows={pending} />
+              <ApplicantTable rows={pending} registeredUniversityIds={registeredUniversityIds} />
             </TabsContent>
             <TabsContent value="approved">
-              <ApplicantTable rows={approved} />
+              <ApplicantTable rows={approved} registeredUniversityIds={registeredUniversityIds} />
             </TabsContent>
             <TabsContent value="rejected">
-              <ApplicantTable rows={rejected} />
+              <ApplicantTable rows={rejected} registeredUniversityIds={registeredUniversityIds} />
             </TabsContent>
           </Tabs>
         </CardContent>

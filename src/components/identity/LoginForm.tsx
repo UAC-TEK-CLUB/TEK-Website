@@ -17,12 +17,12 @@ export function LoginForm({ errorParam }: { errorParam?: string }) {
     setError(null);
     startTransition(async () => {
       const res = await signIn("credentials", {
-        universityId: formData.get("universityId"),
+        username: formData.get("username"),
         password: formData.get("password"),
         redirect: false,
       });
       if (res?.error) {
-        setError("Invalid university ID or password.");
+        setError("Invalid username or password.");
         return;
       }
       router.push("/dashboard");
@@ -33,8 +33,15 @@ export function LoginForm({ errorParam }: { errorParam?: string }) {
   return (
     <form action={onSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="universityId">University ID</Label>
-        <Input id="universityId" name="universityId" required autoComplete="username" />
+        <Label htmlFor="username">Username</Label>
+        <Input
+          id="username"
+          name="username"
+          required
+          autoComplete="username"
+          spellCheck={false}
+          className="font-mono"
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>

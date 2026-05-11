@@ -50,7 +50,9 @@ export function AttendanceReport({
           <TableRow key={member.memberId}>
             <TableCell>
               <p className="font-medium">{fullName(member.firstName, member.lastName)}</p>
-              <p className="text-xs text-muted-foreground">{member.universityId}</p>
+              <p className="text-xs text-muted-foreground">
+                @{member.username} · {member.universityId}
+              </p>
             </TableCell>
             <TableCell className="w-[200px]">
               <div className="flex items-center gap-2">

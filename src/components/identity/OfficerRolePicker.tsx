@@ -15,7 +15,7 @@ import type { OfficerRole } from "@prisma/client";
 const ROLES: { value: OfficerRole; label: string }[] = [
   { value: "PRESIDENT", label: "President" },
   { value: "SUPERVISOR", label: "Supervisor" },
-  { value: "OFFICER", label: "Officer" },
+  { value: "LEADER", label: "Lab leader" },
 ];
 
 export function OfficerRolePicker({

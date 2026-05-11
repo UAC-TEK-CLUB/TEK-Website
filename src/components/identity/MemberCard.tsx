@@ -18,14 +18,12 @@ export function MemberCard({ member }: Props) {
         </Avatar>
         <div className="flex-1">
           <p className="font-medium">{fullName(member.firstName, member.lastName)}</p>
-          <p className="text-xs text-muted-foreground">{member.universityId} · {member.email}</p>
+          <p className="text-xs text-muted-foreground">
+            @{member.username} · {member.universityId} · {member.email}
+          </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <RoleBadge
-            memberType={member.memberType}
-            officerRole={member.officerProfile?.officerRole}
-            level={member.officerProfile?.adminAccessLevel}
-          />
+          <RoleBadge memberType={member.memberType} officerRole={member.officerProfile?.officerRole} />
           <MembershipStatusBadge status={member.membershipStatus} />
         </div>
       </CardContent>

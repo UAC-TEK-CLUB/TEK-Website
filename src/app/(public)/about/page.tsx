@@ -9,7 +9,7 @@ export default function AboutPage() {
       </p>
       <p className="mt-4 text-muted-foreground">
         This portal is the members-only operations hub: applications, attendance,
-        mentorship, lab proposals, and internal communications all live here.
+        tutoring videos, lab proposals, and internal communications all live here.
       </p>
     </div>
   );

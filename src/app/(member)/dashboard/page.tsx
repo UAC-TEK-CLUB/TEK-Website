@@ -5,10 +5,11 @@ import {
   Crown,
   FlaskConical,
   Plus,
+  PlayCircle,
   Users,
   Video,
 } from "lucide-react";
-import { isExecutive, requireMember } from "@/lib/permissions";
+import { isExecutive, isSiteAdmin, requireMember } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RoleBadge } from "@/components/identity/RoleBadge";
 import { MembershipStatusBadge } from "@/components/identity/MembershipStatusBadge";
 import { MeetingForm } from "@/components/meetings/MeetingForm";
+import { MemberAnnouncementsSection } from "@/components/community/MemberAnnouncementsSection";
+import { listBulletinHighlights } from "@/server/actions/community";
 import { fullName, formatDate } from "@/lib/utils";
 
 export default async function DashboardPage() {
@@ -24,38 +27,45 @@ export default async function DashboardPage() {
     where: { memberId: user.memberId },
     include: {
       officerProfile: true,
-      mentor: true,
-      mentees: true,
     },
   });
   if (!member) return null;
 
-  const isOfficer = member.memberType === "OFFICER";
+  const siteAdmin = isSiteAdmin(user);
   const executive = isExecutive(user);
+  const meetingsHref = siteAdmin ? "/admin/meetings" : "/meetings";
+  const meetingDetailPrefix = meetingsHref;
 
-  const [upcomingMeetings, openLabApps, mentees, pendingApplicants, recentPending] =
-    await Promise.all([
-      prisma.meeting.findMany({
-        where: { scheduledAt: { gte: new Date() } },
-        orderBy: { scheduledAt: "asc" },
-        take: 3,
-      }),
-      prisma.labApplication.count({
-        where: { memberId: member.memberId, status: "PENDING" },
-      }),
-      prisma.member.count({ where: { mentorId: member.memberId } }),
-      executive
-        ? prisma.clubApplication.count({ where: { status: "PENDING" } })
-        : Promise.resolve(0),
-      executive
-        ? prisma.clubApplication.findMany({
-            where: { status: "PENDING" },
-            include: { applicant: true },
-            orderBy: { submittedAt: "asc" },
-            take: 5,
-          })
-        : Promise.resolve([]),
-    ]);
+  const [
+    upcomingMeetings,
+    openLabApps,
+    pendingApplicants,
+    recentPending,
+    beginnerVideos,
+    bulletinHighlights,
+  ] = await Promise.all([
+    prisma.meeting.findMany({
+      where: { scheduledAt: { gte: new Date() } },
+      orderBy: { scheduledAt: "asc" },
+      take: 3,
+    }),
+    prisma.labApplication.count({
+      where: { memberId: member.memberId, status: "PENDING" },
+    }),
+    executive
+      ? prisma.clubApplication.count({ where: { status: "PENDING" } })
+      : Promise.resolve(0),
+    executive
+      ? prisma.clubApplication.findMany({
+          where: { status: "PENDING" },
+          include: { applicant: true },
+          orderBy: { submittedAt: "asc" },
+          take: 5,
+        })
+      : Promise.resolve([]),
+    prisma.tutoringVideo.count(),
+    listBulletinHighlights(5),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -67,14 +77,12 @@ export default async function DashboardPage() {
           <p className="text-sm text-muted-foreground">{member.email}</p>
         </div>
         <div className="flex gap-2">
-          <RoleBadge
-            memberType={member.memberType}
-            officerRole={member.officerProfile?.officerRole}
-            level={member.officerProfile?.adminAccessLevel}
-          />
+          <RoleBadge memberType={member.memberType} officerRole={member.officerProfile?.officerRole} />
           <MembershipStatusBadge status={member.membershipStatus} />
         </div>
       </div>
+
+      <MemberAnnouncementsSection posts={bulletinHighlights} />
 
       {executive && (
         <Card className="border-red-200/80 bg-red-50/60 dark:border-red-900/40 dark:bg-red-950/20">
@@ -129,11 +137,11 @@ export default async function DashboardPage() {
         </Card>
       )}
 
-      {isOfficer && (
+      {siteAdmin && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Officer quick actions
+              Admin quick actions
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
@@ -182,7 +190,7 @@ export default async function DashboardPage() {
           <CardContent>
             <p className="text-3xl font-bold">{upcomingMeetings.length}</p>
             <Link
-              href="/meetings"
+              href={meetingsHref}
               className="mt-2 inline-flex items-center text-xs text-primary hover:underline"
             >
               View calendar <ArrowRight className="ml-1 h-3 w-3" />
@@ -208,16 +216,21 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">My mentees</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Beginner Python videos</CardTitle>
+            <PlayCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{mentees}</p>
+            <p className="text-3xl font-bold">{beginnerVideos}</p>
             <p className="mt-2 text-xs text-muted-foreground">
-              {member.mentor
-                ? `Your mentor is ${member.mentor.firstName} ${member.mentor.lastName}`
-                : "No mentor assigned yet"}
+              Beginner-friendly Python lectures are available in the Tutoring
+              Videos library.
             </p>
+            <Link
+              href="/tutoring"
+              className="mt-2 inline-flex items-center text-xs text-primary hover:underline"
+            >
+              Watch videos <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
           </CardContent>
         </Card>
       </div>
@@ -241,7 +254,10 @@ export default async function DashboardPage() {
                     {new Date(m.scheduledAt).toLocaleString()} · {m.type}
                   </p>
                 </div>
-                <Link href={`/meetings/${m.meetingId}`} className="text-sm text-primary hover:underline">
+                <Link
+                  href={`${meetingDetailPrefix}/${m.meetingId}`}
+                  className="text-sm text-primary hover:underline"
+                >
                   Details
                 </Link>
               </div>

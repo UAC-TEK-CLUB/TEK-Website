@@ -9,6 +9,7 @@ import { updateMemberProfile } from "@/server/actions/identity";
 
 type Props = {
   initial: {
+    username: string;
     firstName: string;
     lastName: string;
     email: string;
@@ -40,6 +41,13 @@ export function ProfileForm({ initial, isRegular }: Props) {
 
   return (
     <form action={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="username">Username (sign-in)</Label>
+        <Input id="username" value={initial.username} readOnly className="bg-muted font-mono" />
+        <p className="text-xs text-muted-foreground">
+          Used only to log in. Contact an officer if you need it changed.
+        </p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="firstName">First name</Label>

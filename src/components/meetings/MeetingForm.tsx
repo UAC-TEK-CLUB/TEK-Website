@@ -5,6 +5,7 @@ import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -22,7 +23,14 @@ import {
 } from "@/components/ui/dialog";
 import { createMeeting } from "@/server/actions/meetings";
 
-const TYPES = ["GENERAL", "WORKSHOP", "HACKATHON", "SOCIAL", "OFFICER_ONLY"] as const;
+const TYPES = [
+  "GENERAL",
+  "WORKSHOP",
+  "HACKATHON",
+  "SOCIAL",
+  "SHOWCASE",
+  "OFFICER_ONLY",
+] as const;
 
 export function MeetingForm() {
   const [open, setOpen] = useState(false);
@@ -39,6 +47,7 @@ export function MeetingForm() {
           scheduledAt: formData.get("scheduledAt"),
           type,
           location: formData.get("location") || null,
+          notes: (formData.get("notes") as string) || undefined,
         });
         setOpen(false);
       } catch (err) {
@@ -85,6 +94,19 @@ export function MeetingForm() {
           <div className="space-y-2">
             <Label htmlFor="location">Location</Label>
             <Input id="location" name="location" placeholder="Room or URL" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes &amp; RSVP (optional)</Label>
+            <Textarea
+              id="notes"
+              name="notes"
+              rows={4}
+              placeholder="RSVP link, agenda doc, parking info, etc. Paste https://… or use [label](https://…)."
+              className="resize-y"
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown to all members on the meeting page.
+            </p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>

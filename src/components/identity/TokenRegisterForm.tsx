@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { completeRegistration } from "@/server/actions/identity";
+import { completeRegistrationSchema } from "@/lib/validators/identity";
 
 type Props = {
   token: string;
@@ -15,6 +16,7 @@ type Props = {
     firstName: string;
     lastName: string;
     email: string;
+    /** Official school / campus ID from the application (shown for reference only). */
     universityId: string;
   };
 };
@@ -28,14 +30,27 @@ export function TokenRegisterForm({ token, prefill }: Props) {
     setError(null);
     startTransition(async () => {
       const password = formData.get("password") as string;
+      const draft = {
+        token,
+        username: formData.get("username"),
+        password,
+        expectedGraduation: formData.get("expectedGraduation"),
+      };
+      const validated = completeRegistrationSchema.safeParse(draft);
+      if (!validated.success) {
+        const fe = validated.error.flatten().fieldErrors;
+        setError(
+          fe.username?.[0] ??
+            fe.password?.[0] ??
+            fe.expectedGraduation?.[0] ??
+            "Check your entries and try again."
+        );
+        return;
+      }
       try {
-        const result = await completeRegistration({
-          token,
-          password,
-          expectedGraduation: formData.get("expectedGraduation"),
-        });
+        const result = await completeRegistration(validated.data);
         const signInRes = await signIn("credentials", {
-          universityId: result.universityId,
+          username: result.username,
           password,
           redirect: false,
         });
@@ -64,20 +79,52 @@ export function TokenRegisterForm({ token, prefill }: Props) {
         </div>
       </div>
       <div className="space-y-2">
-        <Label>University ID</Label>
+        <Label>University ID (from your application)</Label>
         <Input value={prefill.universityId} readOnly className="bg-muted font-mono" />
+        <p className="text-xs text-muted-foreground">
+          This is your official campus record. It is not your website login.
+        </p>
       </div>
       <div className="space-y-2">
         <Label>University email</Label>
         <Input value={prefill.email} readOnly className="bg-muted" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="expectedGraduation">Expected graduation</Label>
+        <Label htmlFor="username">Choose a username</Label>
+        <Input
+          id="username"
+          name="username"
+          required
+          minLength={3}
+          maxLength={24}
+          autoComplete="username"
+          spellCheck={false}
+          className="font-mono"
+          placeholder="e.g. hannah_k"
+        />
+        <p className="text-xs text-muted-foreground">
+          3–24 characters: letters, numbers, and underscores only. Stored in lowercase — this
+          is what you will use to sign in.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="expectedGraduation">Expected graduation/transition</Label>
         <Input id="expectedGraduation" name="expectedGraduation" type="date" required />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Choose a password</Label>
-        <Input id="password" name="password" type="password" required minLength={8} />
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+        />
+        <p className="text-xs text-muted-foreground">
+          At least 8 characters, one capital letter (A–Z), one number, and one special character
+          from: ! @ # $ % ^ & *
+        </p>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

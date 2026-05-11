@@ -26,6 +26,9 @@ enum MemberType {
 
 model Member {
   memberId         String           @id @default(cuid()) @map("member_id")
+  /** Site login id (chosen at registration). Stored lowercase. */
+  username         String           @unique @map("username")
+  /** Official university / campus ID from the application (not used for login). */
   universityId     String           @unique @map("university_id")
   email            String           @unique
   firstName        String           @map("first_name")
@@ -34,11 +37,6 @@ model Member {
   joinDate         DateTime         @default(now()) @map("join_date")
   membershipStatus MembershipStatus @default(ACTIVE) @map("membership_status")
   memberType       MemberType       @map("member_type")
-
-  // Recursive 1:N mentorship
-  mentorId String?  @map("mentor_id")
-  mentor   Member?  @relation("Mentorship", fields: [mentorId], references: [memberId], onDelete: SetNull)
-  mentees  Member[] @relation("Mentorship")
 
   // ISA 1:1 subtypes
   officerProfile ClubOfficer?
@@ -53,20 +51,59 @@ model Member {
   sentMessages     ChatMessage[]      @relation("Sender")
   receivedMessages ChatMessage[]      @relation("Receiver")
   tutoringVideos   TutoringVideo[]
+  passwordChangeTickets PasswordChangeTicket[]
+  /** Labs this member leads (lab leader dashboard). */
+  ledLabs          Lab[]              @relation("LabLeader")
 
   @@map("members")
+}
+
+enum RecoveryPurpose {
+  REVEAL_USERNAME
+  PASSWORD_RESET
+}
+
+model AccountRecoveryCode {
+  accountRecoveryCodeId String          @id @default(cuid()) @map("account_recovery_code_id")
+  purpose                 RecoveryPurpose @map("purpose")
+  /** SHA-256 of server secret + ":" + six-digit code (never store plaintext OTP). */
+  codeHash                String          @map("code_hash")
+  universityId            String          @map("university_id")
+  /** Lowercase site username when purpose is PASSWORD_RESET. */
+  usernameNorm            String?         @map("username_norm")
+  expiresAt               DateTime        @map("expires_at")
+  usedAt                  DateTime?       @map("used_at")
+  attemptCount            Int             @default(0) @map("attempt_count")
+  createdAt               DateTime        @default(now()) @map("created_at")
+
+  @@index([universityId, purpose])
+  @@map("account_recovery_codes")
+}
+
+model PasswordChangeTicket {
+  passwordChangeTicketId String    @id @default(cuid()) @map("password_change_ticket_id")
+  memberId               String    @map("member_id")
+  token                  String    @unique @map("token")
+  expiresAt              DateTime  @map("expires_at")
+  usedAt                 DateTime? @map("used_at")
+
+  member Member @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
+
+  @@index([memberId])
+  @@map("password_change_tickets")
 }
 
 enum OfficerRole {
   PRESIDENT
   SUPERVISOR
-  OFFICER
+  LEADER
 }
 
 model ClubOfficer {
   memberId         String      @id @map("member_id")
+  /** Legacy numeric rank; permissions use officerRole only (president & supervisor = full admin). */
   adminAccessLevel Int         @default(1) @map("admin_access_level")
-  officerRole      OfficerRole @default(OFFICER) @map("officer_role")
+  officerRole      OfficerRole @default(LEADER) @map("officer_role")
 
   member            Member             @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
   proposalDecisions LabProposal[]      @relation("ReviewedBy")
@@ -139,13 +176,17 @@ model ClubApplication {
 // ==========================================================
 
 model Lab {
-  labId       String   @id @default(cuid()) @map("lab_id")
-  labName     String   @unique @map("lab_name")
-  description String
-  objective   String
-  createdAt   DateTime @default(now()) @map("created_at")
+  labId          String   @id @default(cuid()) @map("lab_id")
+  labName        String   @unique @map("lab_name")
+  description    String
+  objective      String
+  createdAt      DateTime @default(now()) @map("created_at")
+  leaderMemberId String?  @map("leader_member_id")
 
+  leader       Member?          @relation("LabLeader", fields: [leaderMemberId], references: [memberId], onDelete: SetNull)
   applications LabApplication[]
+  announcements BulletinPost[]
+  spotlight    LeaderProject?
 
   @@map("labs")
 }
@@ -195,6 +236,7 @@ enum MeetingType {
   WORKSHOP
   HACKATHON
   SOCIAL
+  SHOWCASE
   OFFICER_ONLY
 }
 
@@ -204,6 +246,8 @@ model Meeting {
   scheduledAt DateTime    @map("scheduled_at")
   type        MeetingType
   location    String?
+  /** RSVP links, agenda links, or other notes visible to members */
+  notes       String?
 
   attendance AttendanceRecord[]
 
@@ -237,14 +281,18 @@ model AttendanceRecord {
 model BulletinPost {
   postId   String   @id @default(cuid()) @map("post_id")
   authorId String   @map("author_id")
+  /** Null = club-wide announcement (president / supervisor). Set = lab-only (that lab's leader + executives). */
+  labId    String?  @map("lab_id")
   title    String
   content  String
   pinned   Boolean  @default(false)
   postedAt DateTime @default(now()) @map("posted_at")
 
   author Member @relation(fields: [authorId], references: [memberId], onDelete: Cascade)
+  lab    Lab?   @relation(fields: [labId], references: [labId], onDelete: Cascade)
 
   @@index([postedAt])
+  @@index([labId])
   @@map("bulletin_board")
 }
 
@@ -294,6 +342,21 @@ model TutoringVideo {
 
   @@index([createdAt])
   @@map("tutoring_videos")
+}
+
+model LeaderProject {
+  projectId    String   @id @default(cuid()) @map("project_id")
+  labId        String   @unique @map("lab_id")
+  title        String
+  description  String
+  photoUrl     String   @map("photo_url")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  lab Lab @relation(fields: [labId], references: [labId], onDelete: Cascade)
+
+  @@index([updatedAt])
+  @@map("leader_projects")
 }
 
 // ==========================================================

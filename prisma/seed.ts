@@ -4,35 +4,66 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const universityId = process.env.SEED_OFFICER_UNIVERSITY_ID ?? "TEK0001";
-  const email = process.env.SEED_OFFICER_EMAIL ?? "admin@tek.club";
-  const password = process.env.SEED_OFFICER_PASSWORD ?? "ChangeMeNow!";
-  const passwordHash = await bcrypt.hash(password, 10);
+  const skipBootstrapOfficer = process.env.SEED_BOOTSTRAP_OFFICER === "false";
 
-  const officer = await prisma.member.upsert({
-    where: { universityId },
-    update: {},
-    create: {
-      universityId,
-      email,
-      firstName: "Founding",
-      lastName: "President",
-      passwordHash,
-      memberType: "OFFICER",
-      membershipStatus: "ACTIVE",
-      officerProfile: {
-        create: { adminAccessLevel: 5, officerRole: "PRESIDENT" },
+  if (!skipBootstrapOfficer) {
+    const username = (process.env.SEED_OFFICER_USERNAME ?? "tek0001").trim().toLowerCase();
+    const universityId = process.env.SEED_OFFICER_UNIVERSITY_ID ?? "TEK0001";
+    const email = process.env.SEED_OFFICER_EMAIL ?? "admin@tek.club";
+    const password = process.env.SEED_OFFICER_PASSWORD ?? "ChangeMeNow!";
+    const firstName = (process.env.SEED_OFFICER_FIRST_NAME ?? "Founding").trim() || "Founding";
+    const lastName = (process.env.SEED_OFFICER_LAST_NAME ?? "President").trim() || "President";
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const officer = await prisma.member.upsert({
+      where: { universityId },
+      update: {
+        username,
+        passwordHash,
+        email,
+        firstName,
+        lastName,
       },
-    },
-    include: { officerProfile: true },
-  });
+      create: {
+        username,
+        universityId,
+        email,
+        firstName,
+        lastName,
+        passwordHash,
+        memberType: "OFFICER",
+        membershipStatus: "ACTIVE",
+        officerProfile: {
+          create: { adminAccessLevel: 5, officerRole: "PRESIDENT" },
+        },
+      },
+      include: { officerProfile: true },
+    });
 
-  // Make sure an existing seeded record becomes PRESIDENT even if the row was
-  // created before this column existed.
-  await prisma.clubOfficer.update({
-    where: { memberId: officer.memberId },
-    data: { officerRole: "PRESIDENT", adminAccessLevel: 5 },
-  });
+    // Make sure an existing seeded record becomes PRESIDENT even if the row was
+    // created before this column existed.
+    await prisma.clubOfficer.update({
+      where: { memberId: officer.memberId },
+      data: { officerRole: "PRESIDENT", adminAccessLevel: 5 },
+    });
+
+    console.log(
+      "Seeded president:",
+      officer.firstName,
+      officer.lastName,
+      "| login:",
+      officer.username,
+      "| email:",
+      officer.email,
+      "| campus ID:",
+      officer.universityId,
+      "| password: (value of SEED_OFFICER_PASSWORD in .env)"
+    );
+  } else {
+    console.log(
+      "SEED_BOOTSTRAP_OFFICER=false — skipped bootstrap officer (labs/meetings still seeded)."
+    );
+  }
 
   const labs = [
     {
@@ -103,7 +134,6 @@ async function main() {
     },
   });
 
-  console.log("Seeded officer:", officer.universityId, "/ password from env");
 }
 
 main()

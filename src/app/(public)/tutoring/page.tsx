@@ -1,12 +1,13 @@
 import { Video } from "lucide-react";
 import { auth } from "@/lib/auth";
+import { isSiteAdmin } from "@/lib/permissions";
 import { listTutoringVideos } from "@/server/actions/community";
 import { AddVideoDialog } from "@/components/community/AddVideoDialog";
 import { VideoCard } from "@/components/community/VideoCard";
 
 export default async function TutoringVideosPage() {
   const session = await auth();
-  const isOfficer = session?.user?.memberType === "OFFICER";
+  const canManageVideos = isSiteAdmin(session?.user ?? null);
   const videos = await listTutoringVideos();
 
   return (
@@ -19,7 +20,7 @@ export default async function TutoringVideosPage() {
             sign in as a member to access the rest of the portal.
           </p>
         </div>
-        {isOfficer && <AddVideoDialog />}
+        {canManageVideos && <AddVideoDialog />}
       </div>
 
       {videos.length === 0 ? (
@@ -27,15 +28,15 @@ export default async function TutoringVideosPage() {
           <Video className="h-10 w-10 text-muted-foreground" />
           <p className="font-medium">No videos yet</p>
           <p className="text-sm text-muted-foreground">
-            {isOfficer
+            {canManageVideos
               ? 'Click "Add video" to share the first tutorial.'
-              : "Check back soon — officers will post tutorials here."}
+              : "Check back soon — club officers will post tutorials here."}
           </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {videos.map((v) => (
-            <VideoCard key={v.videoId} video={v} isOfficer={!!isOfficer} />
+            <VideoCard key={v.videoId} video={v} isOfficer={canManageVideos} />
           ))}
         </div>
       )}

@@ -25,10 +25,29 @@ npm run db:seed       # creates one bootstrap officer (login = SEED_OFFICER_*)
 npm run dev
 ```
 
-The seeded officer credentials default to:
+The seeded **president** account defaults to:
 
-- **University ID:** `TEK0001`
+- **Username** (site login): `tek0001`
 - **Password:** `ChangeMeNow!`
+
+The seed also stores an official **university / campus ID** on that member record (`TEK0001` by default, via `SEED_OFFICER_UNIVERSITY_ID`) for roster display — it is not used to sign in. New members pick their own username when they complete registration from an approved application.
+
+### Use your own email and IDs for local testing
+
+1. Open your **`.env`** (create from `.env.example` if needed).
+2. Set the seed variables **before** you run `npm run db:seed` the first time, or keep the same `SEED_OFFICER_UNIVERSITY_ID` as the row already in the database if you only want to change login/email/password and re-seed:
+   - **`SEED_OFFICER_USERNAME`** — what you type at `/login` (letters, numbers, underscores; stored lowercase). Example: `jeonghun_p`.
+   - **`SEED_OFFICER_PASSWORD`** — your test password (min 8 characters in the app).
+   - **`SEED_OFFICER_EMAIL`** — your real or test inbox (used for profile / contact; must stay unique in the DB).
+   - **`SEED_OFFICER_UNIVERSITY_ID`** — your official campus ID string for rosters (must match the upsert key if you are **re-running** seed on an existing DB; otherwise you can get a second bootstrap row). To switch to a new campus ID on a dirty dev DB, remove the old seed `members` row in Prisma Studio or run `npx prisma migrate reset` (wipes data) then seed again.
+   - Optional: **`SEED_OFFICER_FIRST_NAME`**, **`SEED_OFFICER_LAST_NAME`** — how your name appears in the app (defaults: Founding President).
+3. Run **`npm run db:seed`** (or `npx prisma db seed`).
+4. Start the app and sign in at **`/login`** with **username + password** (not email).
+
+### Testing other officers and members
+
+- **More members (including future officers):** use **`/apply`** with a different university ID and email per person. An **executive** (president or supervisor) approves under **`/admin/applicants`**. Each approved applicant gets a setup link (email in dev may print to the server console if SMTP is unset); they choose a **username** and password on **`/register?token=...`**.
+- **Promote someone to officer:** after they have an account, the **president** opens **`/admin/members`** and uses the promote flow so leaders get officer tools.
 
 ## Repo structure
 

@@ -14,3 +14,7 @@ export const decideApplicationSchema = z.object({
   clubAppId: z.string().min(1),
   decision: z.enum(["APPROVED", "REJECTED", "WITHDRAWN"]),
 });
+
+export const resendAccountSetupSchema = z.object({
+  clubAppId: z.string().min(1),
+});

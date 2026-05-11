@@ -16,11 +16,20 @@ export default function LoginPage({
             <BrandLogo className="h-14 w-auto max-h-14" />
           </div>
           <CardTitle className="text-2xl">Sign in to UAC TEK Club</CardTitle>
-          <CardDescription>Use your university ID and password.</CardDescription>
+          <CardDescription>Use the username and password you chose when you activated your account.</CardDescription>
         </CardHeader>
         <CardContent>
           <LoginForm errorParam={searchParams.error} />
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            <Link href="/account/find-id" className="font-medium text-primary hover:underline">
+              Forgot username
+            </Link>
+            {" · "}
+            <Link href="/account/forgot-password" className="font-medium text-primary hover:underline">
+              Forgot password
+            </Link>
+          </p>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
             Want to join?{" "}
             <Link href="/apply" className="font-medium text-primary hover:underline">
               Apply here

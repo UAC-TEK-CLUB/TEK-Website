@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ const STATUS_VARIANT = {
 } as const;
 
 export function LabRosterTable({ rows }: { rows: Row[] }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   if (rows.length === 0) {
@@ -75,6 +77,7 @@ export function LabRosterTable({ rows }: { rows: Row[] }) {
                           labAppId: row.labAppId,
                           decision: "APPROVED",
                         });
+                        router.refresh();
                       })
                     }
                   >
@@ -90,6 +93,7 @@ export function LabRosterTable({ rows }: { rows: Row[] }) {
                           labAppId: row.labAppId,
                           decision: "REJECTED",
                         });
+                        router.refresh();
                       })
                     }
                   >

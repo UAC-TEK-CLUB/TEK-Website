@@ -12,11 +12,12 @@ type Row = GalleryPhoto & { uploader: Member };
 export function GalleryGrid({
   photos,
   currentMemberId,
-  isOfficer,
+  canDeleteAnyPhoto,
 }: {
   photos: Row[];
   currentMemberId: string;
-  isOfficer: boolean;
+  /** Executives or lab leaders — may remove any upload. */
+  canDeleteAnyPhoto: boolean;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -41,7 +42,7 @@ export function GalleryGrid({
             <p className="text-white/80">{formatDate(p.uploadedAt)}</p>
             {p.caption && <p className="mt-1 line-clamp-2">{p.caption}</p>}
           </div>
-          {(p.uploaderId === currentMemberId || isOfficer) && (
+          {(p.uploaderId === currentMemberId || canDeleteAnyPhoto) && (
             <Button
               size="icon"
               variant="destructive"

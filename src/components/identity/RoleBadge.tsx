@@ -4,11 +4,9 @@ import type { MemberType, OfficerRole } from "@prisma/client";
 export function RoleBadge({
   memberType,
   officerRole,
-  level,
 }: {
   memberType: MemberType;
   officerRole?: OfficerRole | null;
-  level?: number | null;
 }) {
   if (memberType !== "OFFICER") {
     return <Badge variant="secondary">Member</Badge>;
@@ -20,5 +18,8 @@ export function RoleBadge({
   if (officerRole === "SUPERVISOR") {
     return <Badge className="bg-red-600 hover:bg-red-600/90 text-white">Supervisor</Badge>;
   }
-  return <Badge>Officer · L{level ?? 1}</Badge>;
+  if (officerRole === "LEADER") {
+    return <Badge className="bg-amber-700 hover:bg-amber-700/90 text-white">Lab leader</Badge>;
+  }
+  return <Badge variant="secondary">Officer</Badge>;
 }

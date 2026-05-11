@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import type { MemberType, OfficerRole } from "@prisma/client";
 
 const credentialsSchema = z.object({
-  universityId: z.string().min(1),
+  username: z.string().min(1),
   password: z.string().min(1),
 });
 
@@ -17,17 +17,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: { signIn: "/login" },
   providers: [
     Credentials({
-      name: "University Credentials",
+      name: "Member credentials",
       credentials: {
-        universityId: { label: "University ID", type: "text" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       authorize: async (raw) => {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
 
+        const normalized = parsed.data.username.trim().toLowerCase();
         const member = await prisma.member.findUnique({
-          where: { universityId: parsed.data.universityId },
+          where: { username: normalized },
           include: { officerProfile: true },
         });
         if (!member?.passwordHash) return null;

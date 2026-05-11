@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ApprovalControls } from "@/components/recruitment/ApprovalControls";
+import { ResendSetupLinkControls } from "@/components/recruitment/ResendSetupLinkControls";
 import { formatDate } from "@/lib/utils";
 import type { Applicant, ClubApplication, Visitor } from "@prisma/client";
 
@@ -20,7 +21,15 @@ const STATUS_VARIANT = {
   WITHDRAWN: "outline",
 } as const;
 
-export function ApplicantTable({ rows }: { rows: Row[] }) {
+export function ApplicantTable({
+  rows,
+  registeredUniversityIds = [],
+}: {
+  rows: Row[];
+  /** Applicants who already have a Member row (finished /register). */
+  registeredUniversityIds?: string[];
+}) {
+  const registered = new Set(registeredUniversityIds);
   if (rows.length === 0) {
     return (
       <p className="rounded-md border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
@@ -64,6 +73,8 @@ export function ApplicantTable({ rows }: { rows: Row[] }) {
             <TableCell className="text-right">
               {row.status === "PENDING" ? (
                 <ApprovalControls clubAppId={row.clubAppId} />
+              ) : row.status === "APPROVED" && !registered.has(row.applicant.universityId) ? (
+                <ResendSetupLinkControls clubAppId={row.clubAppId} />
               ) : (
                 <span className="text-xs text-muted-foreground">—</span>
               )}

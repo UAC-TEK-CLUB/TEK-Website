@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 
 type Props = {
   /** Tailwind height + optional width; default sized for the navbar */
@@ -11,13 +12,23 @@ export function BrandLogo({
   priority,
 }: Props) {
   return (
-    <Image
-      src="/branding/tek-korea-logo.png"
-      alt="TEK Korea"
-      width={240}
-      height={240}
-      className={`object-contain ${className}`}
-      priority={priority}
-    />
+    <span className={cn("inline-flex shrink-0 items-center", className)}>
+      <Image
+        src="/branding/tek-korea-logo.png"
+        alt="TEK Korea"
+        width={240}
+        height={240}
+        className="h-full w-auto object-contain dark:hidden"
+        priority={priority}
+      />
+      <Image
+        src="/branding/tek-korea-logo-dark.png"
+        alt="TEK Korea"
+        width={240}
+        height={240}
+        className="hidden h-full w-auto object-contain dark:block"
+        priority={priority}
+      />
+    </span>
   );
 }

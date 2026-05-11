@@ -42,8 +42,8 @@ export function ApplicationForm() {
 
   if (submitted) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-red-950 dark:border-red-900 dark:bg-red-950/30 dark:text-red-50">
-        <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-primary" />
+      <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center text-green-950 dark:border-green-800 dark:bg-green-950/30 dark:text-green-50">
+        <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600 dark:text-green-400" />
         <p className="font-semibold">Application received.</p>
         <p className="mt-1 text-sm">
           We just sent a confirmation to your email. An officer will review your
@@ -80,6 +80,10 @@ export function ApplicationForm() {
       <div className="space-y-2">
         <Label htmlFor="universityId">University ID</Label>
         <Input id="universityId" name="universityId" required />
+        <p className="text-xs text-muted-foreground">
+          Your official campus ID on record. If you are accepted, you will choose a separate
+          website username when you activate your account — it does not have to match this.
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">University email</Label>

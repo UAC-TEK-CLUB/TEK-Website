@@ -19,9 +19,6 @@ export async function Navbar() {
           <Link href="/" className="text-muted-foreground hover:text-foreground">Home</Link>
           <Link href="/about" className="text-muted-foreground hover:text-foreground">About</Link>
           <Link href="/labs" className="text-muted-foreground hover:text-foreground">Labs</Link>
-          <Link href="/tutoring" className="text-muted-foreground hover:text-foreground">
-            Tutoring videos
-          </Link>
           <Link href="/apply" className="text-muted-foreground hover:text-foreground">Apply</Link>
         </nav>
 

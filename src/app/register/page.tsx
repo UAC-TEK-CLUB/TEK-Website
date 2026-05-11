@@ -41,8 +41,8 @@ export default async function RegisterPage({
           </div>
           <CardTitle className="text-2xl">Welcome to UAC TEK Club</CardTitle>
           <CardDescription>
-            Your application is approved. Set a password to finish creating your
-            account.
+            Your application is approved. Pick a username and password for this site (your
+            username is not your university ID).
           </CardDescription>
         </CardHeader>
         <CardContent>

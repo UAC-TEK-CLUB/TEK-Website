@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { requireExecutive, requireOfficer } from "@/lib/permissions";
+import { requireExecutive, requireSiteAdmin } from "@/lib/permissions";
 import {
   submitApplicationSchema,
   decideApplicationSchema,
+  resendAccountSetupSchema,
 } from "@/lib/validators/recruitment";
 import { isAutoEligible } from "@/lib/policy/autoAccept";
 import { sendMail } from "@/lib/mail/transport";
@@ -162,8 +163,52 @@ export async function decideApplication(raw: unknown) {
   };
 }
 
+/** New token + email for approved applicants who never finished /register. */
+export async function resendAccountSetupLink(raw: unknown) {
+  await requireExecutive();
+  const data = resendAccountSetupSchema.parse(raw);
+
+  const application = await prisma.clubApplication.findUnique({
+    where: { clubAppId: data.clubAppId },
+    include: { applicant: true },
+  });
+  if (!application) throw new Error("Application not found.");
+  if (application.status !== "APPROVED") {
+    throw new Error("Only approved applications can receive a setup link.");
+  }
+
+  const existingMember = await prisma.member.findUnique({
+    where: { universityId: application.applicantId },
+  });
+  if (existingMember) {
+    throw new Error("This applicant already completed registration.");
+  }
+
+  const accountSetupToken = crypto.randomUUID();
+  const registerPath = `/register?token=${accountSetupToken}`;
+
+  await prisma.clubApplication.update({
+    where: { clubAppId: data.clubAppId },
+    data: { accountSetupToken },
+  });
+
+  revalidatePath("/admin/applicants");
+
+  await sendMail(
+    acceptanceEmail({
+      to: application.applicant.email,
+      firstName: application.applicant.firstName,
+      registerPath,
+      autoAccepted: false,
+      reminder: true,
+    })
+  );
+
+  return { registerUrl: registerPath };
+}
+
 export async function visitorAnalytics() {
-  await requireOfficer();
+  await requireSiteAdmin();
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [total, last30, withApp] = await Promise.all([
     prisma.visitor.count(),

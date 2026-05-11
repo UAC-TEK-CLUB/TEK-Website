@@ -1,12 +1,16 @@
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/permissions";
+import { isSiteAdmin, requireMember } from "@/lib/permissions";
 import { BulletinFeed } from "@/components/community/BulletinFeed";
 import { NewPostDialog } from "@/components/community/NewPostDialog";
 
 export default async function BulletinPage() {
   const me = await requireMember();
   const posts = await prisma.bulletinPost.findMany({
-    include: { author: true },
+    where: { labId: null },
+    include: {
+      author: true,
+      lab: { select: { labName: true } },
+    },
     orderBy: [{ pinned: "desc" }, { postedAt: "desc" }],
   });
 
@@ -16,16 +20,18 @@ export default async function BulletinPage() {
         <div>
           <h1 className="text-2xl font-bold">Bulletin board</h1>
           <p className="text-sm text-muted-foreground">
-            Announcements from members and officers.
+            Club-wide posts from the president and supervisors. Lab leader updates live on each
+            lab&apos;s page for approved lab members. All members can read; only executives can post
+            here.
           </p>
         </div>
-        <NewPostDialog />
+        {isSiteAdmin(me) && <NewPostDialog />}
       </div>
 
       <BulletinFeed
         posts={posts}
         currentMemberId={me.memberId}
-        isOfficer={me.memberType === "OFFICER"}
+        isSiteAdmin={isSiteAdmin(me)}
       />
     </div>
   );

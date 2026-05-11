@@ -40,12 +40,12 @@ export function NewPostDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="mr-2 h-4 w-4" /> New post
+          <Plus className="mr-2 h-4 w-4" /> New announcement
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Post to the bulletin board</DialogTitle>
+          <DialogTitle>New club announcement</DialogTitle>
         </DialogHeader>
         <form action={onSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -55,6 +55,13 @@ export function NewPostDialog() {
           <div className="space-y-2">
             <Label htmlFor="content">Content</Label>
             <Textarea id="content" name="content" rows={6} required />
+            <p className="text-xs text-muted-foreground">
+              Paste full URLs (https://…) to make them clickable, or use{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[0.7rem]">
+                [link text](https://example.com)
+              </code>
+              .
+            </p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <DialogFooter>

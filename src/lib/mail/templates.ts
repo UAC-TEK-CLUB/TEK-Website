@@ -20,11 +20,15 @@ export function acceptanceEmail(opts: {
   firstName: string;
   registerPath: string;
   autoAccepted: boolean;
+  /** Resend after approval when the applicant never finished /register. */
+  reminder?: boolean;
 }): MailMessage {
   const url = `${getAppUrl()}${opts.registerPath}`;
-  const lead = opts.autoAccepted
-    ? "Welcome aboard! Your application was approved automatically based on your major."
-    : "Good news — an officer just approved your application.";
+  const lead = opts.reminder
+    ? "Your application is already approved. Use the link below to finish creating your account."
+    : opts.autoAccepted
+      ? "Welcome aboard! Your application was approved automatically based on your major."
+      : "Good news — an officer just approved your application.";
 
   const text = [
     `Hi ${opts.firstName},`,
@@ -39,8 +43,12 @@ export function acceptanceEmail(opts: {
     `— ${BRAND}`,
   ].join("\n");
 
+  const title = opts.reminder
+    ? `Finish your ${BRAND} account, ${opts.firstName}`
+    : `Welcome to ${BRAND}, ${opts.firstName}!`;
+
   const html = wrap(
-    `Welcome to ${BRAND}, ${opts.firstName}!`,
+    title,
     `<p style="margin:0 0 16px 0;">${lead}</p>
      <p style="margin:0 0 24px 0;">Use the button below to set up your account. The link is one-time use.</p>
      <p style="margin:0 0 24px 0;">
@@ -51,7 +59,9 @@ export function acceptanceEmail(opts: {
 
   return {
     to: opts.to,
-    subject: `Your ${BRAND} application was approved`,
+    subject: opts.reminder
+      ? `${BRAND} — finish your account setup`
+      : `Your ${BRAND} application was approved`,
     text,
     html,
   };
@@ -104,6 +114,41 @@ export function rejectionEmail(opts: { to: string; firstName: string }): MailMes
   return {
     to: opts.to,
     subject: `${BRAND} — application update`,
+    text,
+    html,
+  };
+}
+
+export function accountRecoveryOtpEmail(opts: {
+  to: string;
+  firstName: string;
+  code: string;
+  intro: string;
+}): MailMessage {
+  const text = [
+    `Hi ${opts.firstName},`,
+    "",
+    opts.intro,
+    "",
+    `Your verification code: ${opts.code}`,
+    "",
+    "This code expires in 15 minutes. If you did not request it, you can ignore this email.",
+    "",
+    `— ${BRAND}`,
+  ].join("\n");
+
+  const html = wrap(
+    `${BRAND} verification code`,
+    `<p style="margin:0 0 16px 0;">Hi ${opts.firstName},</p>
+     <p style="margin:0 0 16px 0;">${opts.intro}</p>
+     <p style="margin:0 0 8px 0;font-size:14px;color:#52525b;">Your verification code</p>
+     <p style="margin:0 0 24px 0;font-size:28px;font-weight:700;letter-spacing:0.2em;font-family:ui-monospace,monospace;">${opts.code}</p>
+     <p style="margin:0;font-size:12px;color:#71717a;">Expires in 15 minutes. If you did not request this, you can ignore this message.</p>`
+  );
+
+  return {
+    to: opts.to,
+    subject: `${BRAND} — your verification code`,
     text,
     html,
   };
