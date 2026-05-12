@@ -1,24 +1,28 @@
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
-import { requireSiteAdmin } from "@/lib/permissions";
+import { requirePresident } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
 export default async function AdminProjectsPage() {
-  await requireSiteAdmin();
+  await requirePresident();
 
   const labs = await prisma.lab.findMany({
     orderBy: { labName: "asc" },
     include: {
       spotlight: true,
-      leader: {
-        select: {
-          firstName: true,
-          lastName: true,
-          officerProfile: { select: { officerRole: true } },
+      leaderAssignments: {
+        include: {
+          member: {
+            select: {
+              firstName: true,
+              lastName: true,
+              officerProfile: { select: { officerRole: true } },
+            },
+          },
         },
       },
     },
@@ -31,7 +35,7 @@ export default async function AdminProjectsPage() {
       <div>
         <h1 className="text-2xl font-bold">Lab spotlights</h1>
         <p className="text-sm text-muted-foreground">
-          Each lab has at most one spotlight, edited from that lab&apos;s manage page.{" "}
+          Each lab has at most one spotlight, edited from that lab&apos;s console.{" "}
           {withSpotlight} of {labs.length} labs currently publish a card on the homepage.
         </p>
       </div>
@@ -57,6 +61,7 @@ export default async function AdminProjectsPage() {
                       fill
                       className="object-cover"
                       sizes="160px"
+                      unoptimized={lab.spotlight.photoUrl.startsWith("/")}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center p-2 text-center text-xs text-muted-foreground">
@@ -71,10 +76,17 @@ export default async function AdminProjectsPage() {
                       <Badge variant="secondary">Homepage</Badge>
                     )}
                   </div>
-                  {lab.leader && (
+                  {lab.leaderAssignments.length > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Leader: {lab.leader.firstName} {lab.leader.lastName}
-                      {lab.leader.officerProfile?.officerRole === "LEADER" && " · Lab leader"}
+                      {lab.leaderAssignments.length === 1 ? "Leader" : "Leaders"}:{" "}
+                      {lab.leaderAssignments
+                        .map((a) => {
+                          const m = a.member;
+                          const suffix =
+                            m.officerProfile?.officerRole === "LEADER" ? " (lab leader role)" : "";
+                          return `${m.firstName} ${m.lastName}${suffix}`;
+                        })
+                        .join(" · ")}
                     </p>
                   )}
                   {lab.spotlight ? (
@@ -86,6 +98,19 @@ export default async function AdminProjectsPage() {
                       <p className="line-clamp-2 text-sm text-muted-foreground">
                         {lab.spotlight.description}
                       </p>
+                      {lab.spotlight.websiteUrl && (
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Link:</span>{" "}
+                          <a
+                            href={lab.spotlight.websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="break-all text-primary underline-offset-4 hover:underline"
+                          >
+                            {lab.spotlight.websiteUrl}
+                          </a>
+                        </p>
+                      )}
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">
@@ -94,7 +119,7 @@ export default async function AdminProjectsPage() {
                   )}
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button asChild variant="outline" size="sm">
-                      <Link href={`/member/labs/${lab.labId}/manage`}>Manage lab</Link>
+                      <Link href={`/labs/${lab.labId}/console`}>Lab console</Link>
                     </Button>
                     <Button asChild variant="ghost" size="sm">
                       <Link href={`/labs/${lab.labId}`}>Public lab page</Link>

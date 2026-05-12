@@ -1,3 +1,4 @@
+import type { OfficerRole } from "@prisma/client";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -28,11 +29,18 @@ function memberNavLinks(meetingsHref: string) {
 
 const siteAdminLinks = [
   { href: "/admin/proposals", label: "Proposals", icon: Shield },
-  { href: "/admin/labs", label: "Labs", icon: FlaskConical },
+  { href: "/admin/labs", label: "Labs", icon: Shield },
   { href: "/admin/projects", label: "Lab spotlights", icon: Shield },
   { href: "/admin/members", label: "Members", icon: Shield },
   { href: "/admin/health", label: "Health", icon: Shield },
 ];
+
+function administrationLinksFor(officerRole: OfficerRole | null) {
+  if (officerRole !== "SUPERVISOR") return siteAdminLinks;
+  return siteAdminLinks.filter(
+    (link) => link.href !== "/admin/proposals" && link.href !== "/admin/projects"
+  );
+}
 
 const executiveOnlyLinks = [{ href: "/admin/applicants", label: "Applicants", icon: Crown }];
 
@@ -40,10 +48,13 @@ export type LedLab = { labId: string; labName: string };
 
 export function MemberSidebar({
   isSiteAdmin,
+  officerRole,
   ledLabs,
 }: {
   /** President or supervisor — full /admin access. */
   isSiteAdmin: boolean;
+  /** Used to trim Administration links supervisors do not use. */
+  officerRole: OfficerRole | null;
   ledLabs: LedLab[];
 }) {
   const meetingsHref = isSiteAdmin ? "/admin/meetings" : "/meetings";
@@ -70,7 +81,7 @@ export function MemberSidebar({
             {ledLabs.map((lab) => (
               <Link
                 key={lab.labId}
-                href={`/member/labs/${lab.labId}/manage`}
+                href={`/labs/${lab.labId}/console`}
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
                 <FlaskConical className="h-4 w-4" /> {lab.labName}
@@ -97,7 +108,7 @@ export function MemberSidebar({
             <p className="mt-4 px-2 pb-2 text-xs font-semibold uppercase text-muted-foreground">
               Administration
             </p>
-            {siteAdminLinks.map(({ href, label, icon: Icon }) => (
+            {administrationLinksFor(officerRole).map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}

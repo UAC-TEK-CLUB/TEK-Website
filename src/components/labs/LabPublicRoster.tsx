@@ -2,11 +2,9 @@ import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
-import type { ApplicationStatus } from "@prisma/client";
 
 export type LabPublicRosterRow = {
   labAppId: string;
-  status: ApplicationStatus;
   appliedAt: Date;
   member: { memberId: string; firstName: string; lastName: string; email: string };
 };
@@ -38,92 +36,66 @@ function PersonRow({
 
 export function LabPublicRoster({
   rows,
-  leaderMemberId,
-  leaderProfile,
+  leaderMemberIds,
+  leaders,
 }: {
   rows: LabPublicRosterRow[];
-  leaderMemberId: string | null;
-  leaderProfile: LeaderProfile | null;
+  leaderMemberIds: string[];
+  leaders: LeaderProfile[];
 }) {
-  const members = rows.filter((r) => r.status === "APPROVED");
-  const applicants = rows.filter((r) => r.status === "PENDING");
-
-  const leaderInRoster =
-    leaderMemberId != null &&
-    members.some((r) => r.member.memberId === leaderMemberId);
-  const showLeaderRow = !!(leaderProfile && !leaderInRoster);
-  const memberCount = members.length + (showLeaderRow ? 1 : 0);
+  const leaderSet = new Set(leaderMemberIds);
+  const leadersNotInRoster = leaders.filter((l) => !rows.some((r) => r.member.memberId === l.memberId));
+  const extraLeaderRows = leadersNotInRoster.length;
+  const memberCount = rows.length + extraLeaderRows;
 
   return (
     <Card className="h-fit border-muted lg:sticky lg:top-6">
       <CardHeader className="pb-3">
         <CardTitle className="text-lg">Roster</CardTitle>
         <p className="text-xs font-normal text-muted-foreground">
-          Lab members and pending applicants. Leaders approve or decline from the lab manage page.
+          Approved lab members. Pending applications are handled in your lab console.
         </p>
       </CardHeader>
-      <CardContent className="space-y-6 text-sm">
-        <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Lab members ({memberCount})
-          </h3>
-          {memberCount === 0 ? (
-            <p className="text-xs text-muted-foreground">No approved members yet.</p>
-          ) : (
-            <ul className="space-y-2">
-              {showLeaderRow && leaderProfile && (
-                <PersonRow
-                  key={`leader-${leaderProfile.memberId}`}
-                  name={`${leaderProfile.firstName} ${leaderProfile.lastName}`}
-                  email={leaderProfile.email}
-                  badges={
-                    <Badge variant="secondary" className="text-[10px]">
-                      Leader
-                    </Badge>
-                  }
-                />
-              )}
-              {members.map((row) => {
-                const isLeader = leaderMemberId === row.member.memberId;
-                return (
-                  <PersonRow
-                    key={row.labAppId}
-                    name={`${row.member.firstName} ${row.member.lastName}`}
-                    email={row.member.email}
-                    meta={`Applied ${formatDate(row.appliedAt)}`}
-                    badges={
-                      isLeader ? (
-                        <Badge variant="secondary" className="text-[10px]">
-                          Leader
-                        </Badge>
-                      ) : undefined
-                    }
-                  />
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Applicants ({applicants.length})
-          </h3>
-          {applicants.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No pending applications.</p>
-          ) : (
-            <ul className="space-y-2">
-              {applicants.map((row) => (
+      <CardContent className="text-sm">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Lab members ({memberCount})
+        </h3>
+        {memberCount === 0 ? (
+          <p className="text-xs text-muted-foreground">No approved members yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {leadersNotInRoster.map((leader) => (
+              <PersonRow
+                key={`leader-${leader.memberId}`}
+                name={`${leader.firstName} ${leader.lastName}`}
+                email={leader.email}
+                badges={
+                  <Badge variant="secondary" className="text-[10px]">
+                    Leader
+                  </Badge>
+                }
+              />
+            ))}
+            {rows.map((row) => {
+              const isLeader = leaderSet.has(row.member.memberId);
+              return (
                 <PersonRow
                   key={row.labAppId}
                   name={`${row.member.firstName} ${row.member.lastName}`}
                   email={row.member.email}
-                  meta={`Applied ${formatDate(row.appliedAt)}`}
+                  meta={`Joined ${formatDate(row.appliedAt)}`}
+                  badges={
+                    isLeader ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Leader
+                      </Badge>
+                    ) : undefined
+                  }
                 />
-              ))}
-            </ul>
-          )}
-        </section>
+              );
+            })}
+          </ul>
+        )}
       </CardContent>
     </Card>
   );

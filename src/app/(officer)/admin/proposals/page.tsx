@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { requirePresident } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProposalQueue } from "@/components/labs/ProposalQueue";
 
 export default async function AdminProposalsPage() {
+  await requirePresident();
   const [pending, approved, rejected] = await Promise.all([
     prisma.labProposal.findMany({
       where: { status: "PENDING" },

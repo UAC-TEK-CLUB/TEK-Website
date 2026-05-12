@@ -7,8 +7,16 @@ export const createPostSchema = z.object({
   labId: z.string().min(1).optional().nullable(),
 });
 
+const imageUrlOrPath = z
+  .string()
+  .min(1)
+  .refine(
+    (s) => /^https?:\/\//i.test(s) || s.startsWith("/"),
+    "Must be an http(s) URL or a path starting with /"
+  );
+
 export const uploadPhotoSchema = z.object({
-  url: z.string().url(),
+  url: imageUrlOrPath,
   caption: z.string().max(280).optional().nullable(),
 });
 

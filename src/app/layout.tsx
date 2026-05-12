@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "UAC TEK Club",
+  title: {
+    default: "UAC TEK",
+    template: "%s | UAC TEK",
+  },
   description:
-    "Official portal for the UAC TEK Club — University of Utah Asia Campus coding & analytics society.",
+    "Official portal for UAC TEK — University of Utah Asia Campus coding & analytics society.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

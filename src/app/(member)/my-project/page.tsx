@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Lab spotlights moved to each lab’s manage page (`/member/labs/[labId]/manage`). */
+/** Lab spotlights are edited from `/labs/[labId]/console`. */
 export default function MyProjectRedirectPage() {
   redirect("/labs");
 }

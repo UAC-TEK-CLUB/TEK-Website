@@ -1,13 +1,16 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, FlaskConical, Layers, Users } from "lucide-react";
+import { ArrowRight, ExternalLink, FlaskConical, Layers, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConstellationBackdrop } from "@/components/home/ConstellationBackdrop";
 import { MemberAnnouncementsSection } from "@/components/community/MemberAnnouncementsSection";
+import { GalleryHighlights } from "@/components/community/GalleryHighlights";
 import { formatDate } from "@/lib/utils";
+import { bundleGalleryPhotosByCaption, limitBundlePhotos } from "@/lib/galleryBundles";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { listBulletinHighlights } from "@/server/actions/community";
 import {
   listCurrentProjects,
@@ -16,12 +19,22 @@ import {
 
 export default async function LandingPage() {
   const session = await auth();
-  const [currentProjects, bulletinHighlights] = await Promise.all([
+  const [currentProjects, bulletinHighlights, galleryPhotos] = await Promise.all([
     listCurrentProjects(6),
     session?.user?.memberId != null
       ? listBulletinHighlights(5)
       : Promise.resolve([]),
+    prisma.galleryPhoto.findMany({
+      include: { uploader: { select: { firstName: true, lastName: true } } },
+      orderBy: { uploadedAt: "desc" },
+      take: 100,
+    }),
   ]);
+
+  const galleryBundles = limitBundlePhotos(
+    bundleGalleryPhotosByCaption(galleryPhotos),
+    8
+  ).slice(0, 8);
 
   return (
     <>
@@ -95,7 +108,7 @@ export default async function LandingPage() {
           <div>
             <h2 className="text-2xl font-bold">What we&apos;re working on</h2>
             <p className="text-sm text-muted-foreground">
-              Spotlight cards from each lab — managed on the lab&apos;s page by its leader.
+              Spotlight cards from each lab — managed on the lab&apos;s page by its leaders.
             </p>
           </div>
         </div>
@@ -109,7 +122,17 @@ export default async function LandingPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {currentProjects.map((project: CurrentProject) => {
-              const leader = project.lab.leader;
+              const leaders = project.lab.leaders;
+              const leaderNames = leaders
+                .map((l) => `${l.firstName} ${l.lastName}`)
+                .join(", ");
+              const officerRoles = [
+                ...new Set(
+                  leaders
+                    .map((l) => l.officerProfile?.officerRole)
+                    .filter((r): r is NonNullable<typeof r> => r != null),
+                ),
+              ];
               return (
                 <Card key={project.projectId} className="overflow-hidden">
                   <div className="relative aspect-video w-full bg-muted">
@@ -119,6 +142,7 @@ export default async function LandingPage() {
                       fill
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      unoptimized={project.photoUrl.startsWith("/")}
                     />
                   </div>
                   <CardHeader className="space-y-2 p-4 pb-2">
@@ -127,21 +151,34 @@ export default async function LandingPage() {
                       <Badge variant="outline" className="text-xs">
                         {project.lab.labName}
                       </Badge>
-                      {leader?.officerProfile?.officerRole && (
-                        <Badge variant="secondary">
-                          {roleLabel(leader.officerProfile.officerRole)}
+                      {officerRoles.map((role) => (
+                        <Badge key={role} variant="secondary">
+                          {roleLabel(role)}
                         </Badge>
-                      )}
+                      ))}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {leader
-                        ? `${leader.firstName} ${leader.lastName} · `
-                        : "Lab spotlight · "}
+                      {leaderNames ? `${leaderNames} · ` : "Lab spotlight · "}
                       Updated {formatDate(project.updatedAt)}
                     </p>
-                    <Button asChild variant="link" className="h-auto p-0 text-xs">
-                      <Link href={`/labs/${project.lab.labId}`}>View lab page</Link>
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <Button asChild variant="link" className="h-auto p-0 text-xs">
+                        <Link href={`/labs/${project.lab.labId}`}>View lab page</Link>
+                      </Button>
+                      {project.websiteUrl ? (
+                        <Button asChild variant="link" className="h-auto p-0 text-xs">
+                          <a
+                            href={project.websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1"
+                          >
+                            Project website
+                            <ExternalLink className="h-3 w-3 opacity-80" aria-hidden />
+                          </a>
+                        </Button>
+                      ) : null}
+                    </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 text-sm text-muted-foreground">
                     {project.description}
@@ -150,6 +187,24 @@ export default async function LandingPage() {
               );
             })}
           </div>
+        )}
+      </section>
+
+      <section className="container space-y-4 pb-12">
+        <div>
+          <h2 className="text-2xl font-bold">Gallery highlights</h2>
+          <p className="text-sm text-muted-foreground">
+            Recent event photos from our members, grouped by caption.
+          </p>
+        </div>
+        {galleryBundles.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              No gallery photos yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <GalleryHighlights bundles={galleryBundles} />
         )}
       </section>
     </>

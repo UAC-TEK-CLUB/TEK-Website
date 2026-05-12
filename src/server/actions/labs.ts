@@ -1,15 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { OfficerRole } from "@prisma/client";
+import type { OfficerRole, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireMember, requirePresident, requireSiteAdmin } from "@/lib/permissions";
-import { canManageLabApplications, canViewLabRosterOnPublicLabPage } from "@/lib/labAccess";
+import { canManageLabApplications } from "@/lib/labAccess";
 import {
   createLabSchema,
   decideLabAppSchema,
   decideProposalSchema,
-  setLabLeaderSchema,
+  setLabLeadersSchema,
   submitLabProposalSchema,
 } from "@/lib/validators/labs";
 
@@ -22,75 +22,67 @@ export async function createLab(raw: unknown) {
   return lab;
 }
 
-export async function setLabLeader(raw: unknown) {
-  await requirePresident();
-  const data = setLabLeaderSchema.parse(raw);
-  const leaderId = data.leaderMemberId;
-
-  if (!leaderId) {
-    await prisma.lab.update({
-      where: { labId: data.labId },
-      data: { leaderMemberId: null },
-    });
-    revalidatePath("/admin/labs");
-    revalidatePath(`/admin/labs/${data.labId}`);
-    revalidatePath(`/member/labs/${data.labId}/manage`);
-    revalidatePath(`/labs/${data.labId}`);
-    revalidatePath("/admin/members");
-    return;
-  }
-
-  const member = await prisma.member.findUnique({
+async function ensureMemberReadyAsLabLeader(tx: Prisma.TransactionClient, leaderId: string) {
+  const member = await tx.member.findUnique({
     where: { memberId: leaderId },
     include: { officerProfile: true },
   });
   if (!member) throw new Error("Member not found.");
   if (member.membershipStatus !== "ACTIVE") {
-    throw new Error("Only active members can be assigned as lab leader.");
+    throw new Error("Only active members can be assigned as lab leaders.");
   }
   const role = member.officerProfile?.officerRole;
-  if (role === "PRESIDENT" || role === "SUPERVISOR") {
-    throw new Error("President and supervisor cannot be assigned as a lab leader.");
+  if (role === "SUPERVISOR") {
+    throw new Error("Supervisor cannot be assigned as a lab leader.");
   }
 
+  if (member.memberType === "REGULAR") {
+    await tx.regularMember.deleteMany({ where: { memberId: leaderId } });
+    await tx.clubOfficer.upsert({
+      where: { memberId: leaderId },
+      create: {
+        memberId: leaderId,
+        adminAccessLevel: 2,
+        officerRole: "LEADER",
+      },
+      update: {
+        adminAccessLevel: 2,
+        officerRole: "LEADER",
+      },
+    });
+    await tx.member.update({
+      where: { memberId: leaderId },
+      data: { memberType: "OFFICER" },
+    });
+  } else if (member.memberType === "OFFICER" && !member.officerProfile) {
+    await tx.clubOfficer.create({
+      data: {
+        memberId: leaderId,
+        adminAccessLevel: 2,
+        officerRole: "LEADER",
+      },
+    });
+  }
+}
+
+/** Replace all lab leader assignments (0–2 people). President only. */
+export async function setLabLeaders(raw: unknown) {
+  await requirePresident();
+  const data = setLabLeadersSchema.parse(raw);
+
   await prisma.$transaction(async (tx) => {
-    if (member.memberType === "REGULAR") {
-      await tx.regularMember.deleteMany({ where: { memberId: leaderId } });
-      await tx.clubOfficer.upsert({
-        where: { memberId: leaderId },
-        create: {
-          memberId: leaderId,
-          adminAccessLevel: 2,
-          officerRole: "LEADER",
-        },
-        update: {
-          adminAccessLevel: 2,
-          officerRole: "LEADER",
-        },
-      });
-      await tx.member.update({
-        where: { memberId: leaderId },
-        data: { memberType: "OFFICER" },
-      });
-    } else if (member.memberType === "OFFICER" && !member.officerProfile) {
-      await tx.clubOfficer.create({
-        data: {
-          memberId: leaderId,
-          adminAccessLevel: 2,
-          officerRole: "LEADER",
-        },
+    await tx.labLeaderAssignment.deleteMany({ where: { labId: data.labId } });
+    for (const leaderId of data.leaderMemberIds) {
+      await ensureMemberReadyAsLabLeader(tx, leaderId);
+      await tx.labLeaderAssignment.create({
+        data: { labId: data.labId, memberId: leaderId },
       });
     }
-
-    await tx.lab.update({
-      where: { labId: data.labId },
-      data: { leaderMemberId: leaderId },
-    });
   });
 
   revalidatePath("/admin/labs");
   revalidatePath(`/admin/labs/${data.labId}`);
-  revalidatePath(`/member/labs/${data.labId}/manage`);
+  revalidatePath(`/labs/${data.labId}/console`);
   revalidatePath(`/labs/${data.labId}`);
   revalidatePath("/admin/members");
   revalidatePath("/labs");
@@ -98,6 +90,9 @@ export async function setLabLeader(raw: unknown) {
 
 export async function applyToLab(labId: string) {
   const me = await requireMember();
+  if (me.officerRole === "SUPERVISOR") {
+    throw new Error("Supervisors do not join labs as members through this page.");
+  }
   const application = await prisma.labApplication.upsert({
     where: { memberId_labId: { memberId: me.memberId, labId } },
     update: { status: "PENDING" },
@@ -128,7 +123,7 @@ export async function decideLabApplication(raw: unknown) {
   });
   revalidatePath("/admin/labs");
   revalidatePath(`/admin/labs/${app.labId}`);
-  revalidatePath(`/member/labs/${app.labId}/manage`);
+  revalidatePath(`/labs/${app.labId}/console`);
   revalidatePath(`/labs/${app.labId}`);
 }
 
@@ -149,7 +144,7 @@ export async function submitLabProposal(raw: unknown) {
 }
 
 export async function decideLabProposal(raw: unknown) {
-  const officer = await requireSiteAdmin();
+  const officer = await requirePresident();
   const data = decideProposalSchema.parse(raw);
 
   const proposal = await prisma.labProposal.findUnique({
@@ -208,15 +203,15 @@ type PublicRosterViewer = {
   officerRole?: OfficerRole | null;
 };
 
-/** Read-only roster for the public lab page; `null` if the viewer may not see it. */
+/** Read-only roster for the public lab page; any signed-in member may see it. */
 export async function getLabRosterForPublicPage(labId: string, viewer: PublicRosterViewer | null) {
-  if (!viewer || !(await canViewLabRosterOnPublicLabPage(viewer, labId))) return null;
+  if (!viewer) return null;
   return prisma.labApplication.findMany({
-    where: { labId, status: { in: ["APPROVED", "PENDING"] } },
+    where: { labId, status: "APPROVED" },
     include: {
       member: { select: { memberId: true, firstName: true, lastName: true, email: true } },
     },
-    orderBy: [{ status: "asc" }, { appliedAt: "asc" }],
+    orderBy: { appliedAt: "asc" },
   });
 }
 

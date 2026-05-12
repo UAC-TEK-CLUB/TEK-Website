@@ -79,7 +79,10 @@ export function ApplicationForm() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="universityId">University ID</Label>
-        <Input id="universityId" name="universityId" required />
+        <Input id="universityId" name="universityId" required placeholder="e.g. U1234567" />
+        <p className="text-xs text-muted-foreground">
+          Example: <span className="font-mono">U1234567</span>
+        </p>
         <p className="text-xs text-muted-foreground">
           Your official campus ID on record. If you are accepted, you will choose a separate
           website username when you activate your account — it does not have to match this.

@@ -59,7 +59,91 @@ async function main() {
       officer.universityId,
       "| password: (value of SEED_OFFICER_PASSWORD in .env)"
     );
-  } else {
+  }
+
+  const supUni = (process.env.SEED_SUPERVISOR_UNIVERSITY_ID ?? "").trim();
+  const supEmail = (process.env.SEED_SUPERVISOR_EMAIL ?? "").trim();
+  const bootstrapSupervisor =
+    process.env.SEED_BOOTSTRAP_SUPERVISOR === "true" || !!supUni || !!supEmail;
+
+  if (bootstrapSupervisor) {
+    const universityId = supUni || "TEK_SUPERVISOR";
+    const email =
+      supEmail ||
+      `supervisor.seed+${universityId.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase() || "tek"}@local.invalid`;
+    const username = (process.env.SEED_SUPERVISOR_USERNAME ?? "tek_supervisor").trim().toLowerCase();
+    const password = process.env.SEED_SUPERVISOR_PASSWORD ?? "ChangeMeNow!";
+    const firstName = (process.env.SEED_SUPERVISOR_FIRST_NAME ?? "Faculty").trim() || "Faculty";
+    const lastName = (process.env.SEED_SUPERVISOR_LAST_NAME ?? "Supervisor").trim() || "Supervisor";
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const supervisor = await prisma.member.upsert({
+      where: { universityId },
+      update: {
+        username,
+        passwordHash,
+        email,
+        firstName,
+        lastName,
+        memberType: "OFFICER",
+        membershipStatus: "ACTIVE",
+      },
+      create: {
+        username,
+        universityId,
+        email,
+        firstName,
+        lastName,
+        passwordHash,
+        memberType: "OFFICER",
+        membershipStatus: "ACTIVE",
+        officerProfile: {
+          create: { adminAccessLevel: 5, officerRole: "SUPERVISOR" },
+        },
+      },
+      include: { officerProfile: true },
+    });
+
+    await prisma.regularMember.deleteMany({ where: { memberId: supervisor.memberId } });
+    await prisma.clubOfficer.upsert({
+      where: { memberId: supervisor.memberId },
+      create: {
+        memberId: supervisor.memberId,
+        adminAccessLevel: 5,
+        officerRole: "SUPERVISOR",
+      },
+      update: { officerRole: "SUPERVISOR", adminAccessLevel: 5 },
+    });
+    await prisma.member.update({
+      where: { memberId: supervisor.memberId },
+      data: { memberType: "OFFICER" },
+    });
+
+    console.log(
+      "Seeded supervisor:",
+      supervisor.firstName,
+      supervisor.lastName,
+      "| login:",
+      supervisor.username,
+      "| email:",
+      supervisor.email,
+      "| campus ID:",
+      supervisor.universityId,
+      "| password: (value of SEED_SUPERVISOR_PASSWORD in .env)"
+    );
+    if (!supUni) {
+      console.log(
+        "  → Set SEED_SUPERVISOR_UNIVERSITY_ID to the professor's official campus ID (currently using TEK_SUPERVISOR)."
+      );
+    }
+    if (!supEmail) {
+      console.log(
+        "  → Set SEED_SUPERVISOR_EMAIL to their real address (currently using a placeholder seed email)."
+      );
+    }
+  }
+
+  if (skipBootstrapOfficer) {
     console.log(
       "SEED_BOOTSTRAP_OFFICER=false — skipped bootstrap officer (labs/meetings still seeded)."
     );

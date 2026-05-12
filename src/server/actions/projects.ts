@@ -14,17 +14,18 @@ export type CurrentProject = {
   title: string;
   description: string;
   photoUrl: string;
+  websiteUrl: string | null;
   updatedAt: Date;
   lab: {
     labId: string;
     labName: string;
-    leader: {
+    leaders: Array<{
       firstName: string;
       lastName: string;
       officerProfile: {
         officerRole: "PRESIDENT" | "SUPERVISOR" | "LEADER";
       } | null;
-    } | null;
+    }>;
   };
 };
 
@@ -42,17 +43,19 @@ export async function upsertLabSpotlightProject(raw: unknown) {
       title: data.title,
       description: data.description,
       photoUrl: data.photoUrl,
+      websiteUrl: data.websiteUrl,
     },
     update: {
       title: data.title,
       description: data.description,
       photoUrl: data.photoUrl,
+      websiteUrl: data.websiteUrl,
     },
   });
 
   revalidatePath("/");
   revalidatePath(`/labs/${data.labId}`);
-  revalidatePath(`/member/labs/${data.labId}/manage`);
+  revalidatePath(`/labs/${data.labId}/console`);
   revalidatePath("/admin/projects");
 }
 
@@ -75,22 +78,26 @@ export async function deleteLabSpotlightProject(raw: unknown) {
 
   revalidatePath("/");
   revalidatePath(`/labs/${project.labId}`);
-  revalidatePath(`/member/labs/${project.labId}/manage`);
+  revalidatePath(`/labs/${project.labId}/console`);
   revalidatePath("/admin/projects");
 }
 
 export async function listCurrentProjects(limit = 6) {
-  return prisma.leaderProject.findMany({
+  const rows = await prisma.leaderProject.findMany({
     include: {
       lab: {
         select: {
           labId: true,
           labName: true,
-          leader: {
-            select: {
-              firstName: true,
-              lastName: true,
-              officerProfile: { select: { officerRole: true } },
+          leaderAssignments: {
+            include: {
+              member: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                  officerProfile: { select: { officerRole: true } },
+                },
+              },
             },
           },
         },
@@ -99,4 +106,12 @@ export async function listCurrentProjects(limit = 6) {
     orderBy: { updatedAt: "desc" },
     take: limit,
   });
+  return rows.map((row) => ({
+    ...row,
+    lab: {
+      labId: row.lab.labId,
+      labName: row.lab.labName,
+      leaders: row.lab.leaderAssignments.map((a) => a.member),
+    },
+  }));
 }

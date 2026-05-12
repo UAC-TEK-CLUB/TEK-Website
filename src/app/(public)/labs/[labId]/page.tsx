@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { ExternalLink } from "lucide-react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -23,8 +24,10 @@ export default async function LabDetailPage({
     where: { labId: params.labId },
     include: {
       spotlight: true,
-      leader: {
-        select: { memberId: true, firstName: true, lastName: true, email: true },
+      leaderAssignments: {
+        include: {
+          member: { select: { memberId: true, firstName: true, lastName: true, email: true } },
+        },
       },
     },
   });
@@ -58,8 +61,9 @@ export default async function LabDetailPage({
 
   const isAssignedLabLeader =
     !!session?.user &&
-    lab.leaderMemberId != null &&
-    lab.leaderMemberId === session.user.memberId;
+    lab.leaderAssignments.some((a) => a.memberId === session.user.memberId);
+
+  const isSupervisor = session?.user?.officerRole === "SUPERVISOR";
 
   const showRoster = rosterRows !== null;
 
@@ -74,7 +78,10 @@ export default async function LabDetailPage({
           <p className="text-sm text-muted-foreground">
             <span className="font-medium">Objective:</span> {lab.objective}
           </p>
-          {myApplicationStatus && !isAssignedLabLeader && (
+          {myApplicationStatus &&
+            myApplicationStatus !== "APPROVED" &&
+            !isAssignedLabLeader &&
+            !isSupervisor && (
             <div className="flex items-center gap-2 text-sm">
               <span>Your status:</span>
               <Badge>{myApplicationStatus}</Badge>
@@ -83,12 +90,12 @@ export default async function LabDetailPage({
           {session?.user ? (
             isAssignedLabLeader ? (
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <p className="text-sm text-muted-foreground">You are assigned as the leader of this lab.</p>
+                <p className="text-sm text-muted-foreground">You are assigned as a leader of this lab.</p>
                 <Button asChild variant="outline">
-                  <Link href={`/member/labs/${lab.labId}/manage`}>Open lab console</Link>
+                  <Link href={`/labs/${lab.labId}/console`}>Open lab console</Link>
                 </Button>
               </div>
-            ) : (
+            ) : isSupervisor || myApplicationStatus === "APPROVED" ? null : (
               <LabApplicationButton labId={lab.labId} currentStatus={myApplicationStatus} />
             )
           ) : (
@@ -98,29 +105,6 @@ export default async function LabDetailPage({
           )}
         </CardContent>
       </Card>
-
-      {lab.spotlight && (
-        <Card className="overflow-hidden">
-          <div className="relative aspect-video w-full max-h-64 bg-muted md:max-h-80">
-            <Image
-              src={lab.spotlight.photoUrl}
-              alt={lab.spotlight.title}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 48rem"
-            />
-          </div>
-          <CardHeader>
-            <CardTitle className="text-xl">{lab.spotlight.title}</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Lab spotlight · Updated {formatDate(lab.spotlight.updatedAt)}
-            </p>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            <p className="whitespace-pre-wrap">{lab.spotlight.description}</p>
-          </CardContent>
-        </Card>
-      )}
 
       {labAnnouncements !== null && (
         <Card>
@@ -146,11 +130,36 @@ export default async function LabDetailPage({
         </Card>
       )}
 
-      {labAnnouncements === null && session?.user && (
-        <p className="text-sm text-muted-foreground">
-          Lab leader announcements appear here once you are approved for this lab (or if you lead
-          this lab).
-        </p>
+      {lab.spotlight && (
+        <Card className="overflow-hidden">
+          <div className="relative aspect-video w-full max-h-64 bg-muted md:max-h-80">
+            <Image
+              src={lab.spotlight.photoUrl}
+              alt={lab.spotlight.title}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 48rem"
+              unoptimized={lab.spotlight.photoUrl.startsWith("/")}
+            />
+          </div>
+          <CardHeader>
+            <CardTitle className="text-xl">{lab.spotlight.title}</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Lab spotlight · Updated {formatDate(lab.spotlight.updatedAt)}
+            </p>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            <p className="whitespace-pre-wrap">{lab.spotlight.description}</p>
+            {lab.spotlight.websiteUrl && (
+              <Button asChild variant="outline" size="sm" className="mt-4 gap-2">
+                <a href={lab.spotlight.websiteUrl} target="_blank" rel="noopener noreferrer">
+                  Visit project website
+                  <ExternalLink className="h-3.5 w-3.5 opacity-80" aria-hidden />
+                </a>
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -172,19 +181,12 @@ export default async function LabDetailPage({
           <aside className="min-w-0">
             <LabPublicRoster
               rows={rosterRows}
-              leaderMemberId={lab.leaderMemberId}
-              leaderProfile={lab.leader}
+              leaderMemberIds={lab.leaderAssignments.map((a) => a.memberId)}
+              leaders={lab.leaderAssignments.map((a) => a.member)}
             />
           </aside>
         )}
       </div>
-
-      {!showRoster && session?.user && (
-        <p className="mt-6 text-sm text-muted-foreground">
-          The member and applicant roster appears here once you are approved for this lab, are the
-          lab leader, have a pending application, or are a club executive.
-        </p>
-      )}
     </div>
   );
 }

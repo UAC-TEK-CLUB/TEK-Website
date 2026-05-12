@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Copy, Loader2, X } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  ApproveDecisionButton,
+  RejectDecisionButton,
+} from "@/components/common/ReviewDecisionButtons";
 import {
   Dialog,
   DialogContent,
@@ -57,14 +61,9 @@ export function ApprovalControls({ clubAppId }: { clubAppId: string }) {
   }
 
   return (
-    <div className="flex gap-2">
-      <Button size="sm" disabled={pending} onClick={approve}>
-        {pending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-        Approve
-      </Button>
-      <Button size="sm" variant="outline" disabled={pending} onClick={reject}>
-        <X className="mr-1 h-4 w-4" /> Reject
-      </Button>
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <RejectDecisionButton disabled={pending} onClick={reject} />
+      <ApproveDecisionButton disabled={pending} onClick={approve} />
 
       {error && <p className="ml-2 text-sm text-destructive">{error}</p>}
 

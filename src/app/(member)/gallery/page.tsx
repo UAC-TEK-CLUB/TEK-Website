@@ -20,8 +20,8 @@ export default async function GalleryPage() {
         <div>
           <h1 className="text-2xl font-bold">Gallery</h1>
           <p className="text-sm text-muted-foreground">
-            Photos from meetings, hackathons, and lab demos. Anyone signed in can add a link;
-            club executives and lab leaders can remove any upload.
+            Photos from meetings, hackathons, and lab demos. Upload from your device (JPEG/PNG/WebP/GIF,
+            up to 5 MB) or paste an image link. Club executives and lab leaders can remove any upload.
           </p>
         </div>
         <PhotoUploader />

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMember, requireSiteAdmin } from "@/lib/permissions";
 import {
+  changePasswordSchema,
   completeRegistrationSchema,
   promoteOfficerSchema,
   setMembershipStatusSchema,
@@ -142,7 +143,7 @@ export async function demoteToRegular(memberId: string, expectedGraduation: Date
   await requireSiteAdmin();
 
   await prisma.$transaction(async (tx) => {
-    await tx.lab.updateMany({ where: { leaderMemberId: memberId }, data: { leaderMemberId: null } });
+    await tx.labLeaderAssignment.deleteMany({ where: { memberId } });
     await tx.clubOfficer.deleteMany({ where: { memberId } });
     await tx.regularMember.upsert({
       where: { memberId },
@@ -198,4 +199,31 @@ export async function setMembershipStatus(raw: unknown) {
   });
 
   revalidatePath("/admin/members");
+}
+
+export async function changeMyPassword(raw: unknown) {
+  const me = await requireMember();
+  const data = changePasswordSchema.parse(raw);
+
+  const member = await prisma.member.findUnique({
+    where: { memberId: me.memberId },
+    select: { passwordHash: true },
+  });
+  if (!member?.passwordHash) {
+    throw new Error("This account does not have a password set.");
+  }
+
+  const ok = await bcrypt.compare(data.currentPassword, member.passwordHash);
+  if (!ok) {
+    throw new Error("Current password is incorrect.");
+  }
+  if (data.currentPassword === data.newPassword) {
+    throw new Error("New password must be different from your current password.");
+  }
+
+  const passwordHash = await bcrypt.hash(data.newPassword, 10);
+  await prisma.member.update({
+    where: { memberId: me.memberId },
+    data: { passwordHash },
+  });
 }

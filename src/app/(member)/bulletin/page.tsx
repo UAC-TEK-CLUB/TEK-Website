@@ -16,16 +16,21 @@ export default async function BulletinPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1 pr-4">
           <h1 className="text-2xl font-bold">Bulletin board</h1>
           <p className="text-sm text-muted-foreground">
             Club-wide posts from the president and supervisors. Lab leader updates live on each
-            lab&apos;s page for approved lab members. All members can read; only executives can post
-            here.
+            lab&apos;s page for approved lab members.
+            <br />
+            All members can read; only executives can post here.
           </p>
         </div>
-        {isSiteAdmin(me) && <NewPostDialog />}
+        {isSiteAdmin(me) && (
+          <div className="shrink-0 self-start">
+            <NewPostDialog />
+          </div>
+        )}
       </div>
 
       <BulletinFeed

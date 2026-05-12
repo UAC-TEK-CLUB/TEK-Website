@@ -2,21 +2,25 @@
 
 import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { setOfficerRole } from "@/server/actions/identity";
+import { cn } from "@/lib/utils";
 import type { OfficerRole } from "@prisma/client";
 
-const ROLES: { value: OfficerRole; label: string }[] = [
-  { value: "PRESIDENT", label: "President" },
-  { value: "SUPERVISOR", label: "Supervisor" },
-  { value: "LEADER", label: "Lab leader" },
-];
+function roleTriggerClass(role: OfficerRole) {
+  if (role === "PRESIDENT") {
+    return "border-red-900/50 bg-red-900 text-white hover:bg-red-900/90";
+  }
+  return "border-amber-700/40 bg-amber-700 text-white hover:bg-amber-700/90";
+}
+
+function roleLabel(role: OfficerRole) {
+  return role === "PRESIDENT" ? "President" : "Lab leader";
+}
+
+function nextRole(current: OfficerRole): OfficerRole {
+  return current === "PRESIDENT" ? "LEADER" : "PRESIDENT";
+}
 
 export function OfficerRolePicker({
   memberId,
@@ -31,8 +35,8 @@ export function OfficerRolePicker({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function onChange(next: OfficerRole) {
-    if (next === value) return;
+  function onToggle() {
+    const next = nextRole(value);
     setError(null);
     const previous = value;
     setValue(next);
@@ -48,22 +52,18 @@ export function OfficerRolePicker({
 
   return (
     <div className="flex items-center gap-2">
-      <Select
-        value={value}
-        onValueChange={(v) => onChange(v as OfficerRole)}
+      <Button
+        type="button"
+        onClick={onToggle}
         disabled={disabled || pending}
+        className={cn(
+          "h-8 rounded-full border px-4 text-xs font-medium transition-colors",
+          roleTriggerClass(value)
+        )}
+        title={`Switch to ${roleLabel(nextRole(value))}`}
       >
-        <SelectTrigger className="h-8 w-36 text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {ROLES.map((r) => (
-            <SelectItem key={r.value} value={r.value} className="text-xs">
-              {r.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        {roleLabel(value)}
+      </Button>
       {pending && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
       {error && <span className="text-xs text-destructive">{error}</span>}
     </div>

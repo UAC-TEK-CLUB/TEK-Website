@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import type { MemberType, OfficerRole } from "@prisma/client";
 
+const rolePillClass = "h-8 px-4 text-xs font-medium";
+
 export function RoleBadge({
   memberType,
   officerRole,
@@ -9,17 +11,37 @@ export function RoleBadge({
   officerRole?: OfficerRole | null;
 }) {
   if (memberType !== "OFFICER") {
-    return <Badge variant="secondary">Member</Badge>;
+    return (
+      <Badge variant="secondary" className={rolePillClass}>
+        Member
+      </Badge>
+    );
   }
 
   if (officerRole === "PRESIDENT") {
-    return <Badge className="bg-red-900 hover:bg-red-900/90 text-white">President</Badge>;
+    return (
+      <Badge className={`${rolePillClass} bg-red-900 hover:bg-red-900/90 text-white`}>
+        President
+      </Badge>
+    );
   }
   if (officerRole === "SUPERVISOR") {
-    return <Badge className="bg-red-600 hover:bg-red-600/90 text-white">Supervisor</Badge>;
+    return (
+      <Badge className={`${rolePillClass} bg-red-600 hover:bg-red-600/90 text-white`}>
+        Supervisor
+      </Badge>
+    );
   }
   if (officerRole === "LEADER") {
-    return <Badge className="bg-amber-700 hover:bg-amber-700/90 text-white">Lab leader</Badge>;
+    return (
+      <Badge className={`${rolePillClass} bg-amber-700 hover:bg-amber-700/90 text-white`}>
+        Lab leader
+      </Badge>
+    );
   }
-  return <Badge variant="secondary">Officer</Badge>;
+  return (
+    <Badge variant="secondary" className={rolePillClass}>
+      Officer
+    </Badge>
+  );
 }

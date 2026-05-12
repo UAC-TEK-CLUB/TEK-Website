@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { listLabs } from "@/server/actions/labs";
+import { isPresident, requireMember } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreateLabForm } from "@/components/labs/CreateLabForm";
 import { LabGrid } from "@/components/labs/LabGrid";
 
 export default async function AdminLabsPage() {
+  const user = await requireMember();
   const labs = await listLabs();
   return (
     <div className="space-y-6">
@@ -29,10 +31,13 @@ export default async function AdminLabsPage() {
 
       <p className="text-xs text-muted-foreground">
         Tip: members pitch new labs through{" "}
-        <Link href="/admin/proposals" className="underline">
-          /admin/proposals
-        </Link>
-        .
+        {isPresident(user) ? (
+          <Link href="/admin/proposals" className="underline">
+            /admin/proposals
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">the proposals queue (president).</span>
+        )}
       </p>
     </div>
   );

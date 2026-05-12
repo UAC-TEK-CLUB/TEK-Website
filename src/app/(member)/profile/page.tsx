@@ -2,6 +2,7 @@ import { requireMember } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ProfileForm } from "@/components/identity/ProfileForm";
+import { ChangePasswordForm } from "@/components/identity/ChangePasswordForm";
 
 export default async function ProfilePage() {
   const user = await requireMember();
@@ -40,6 +41,15 @@ export default async function ProfilePage() {
             }}
             isRegular={member.memberType === "REGULAR"}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Change password</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ChangePasswordForm />
         </CardContent>
       </Card>
     </div>

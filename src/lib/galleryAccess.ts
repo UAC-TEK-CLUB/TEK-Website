@@ -12,8 +12,8 @@ type SessionLike = {
 export async function canModerateGalleryDeletes(user: SessionLike | null): Promise<boolean> {
   if (!user) return false;
   if (isSiteAdmin(user)) return true;
-  const led = await prisma.lab.findFirst({
-    where: { leaderMemberId: user.memberId },
+  const led = await prisma.labLeaderAssignment.findFirst({
+    where: { memberId: user.memberId },
     select: { labId: true },
   });
   return !!led;

@@ -12,7 +12,7 @@ export async function Navbar() {
       <div className="container flex h-14 items-center justify-between">
         <Link href="/" className="flex items-center gap-3 font-semibold">
           <BrandLogo priority />
-          <span className="leading-tight">UAC TEK Club</span>
+          <span className="text-sm font-semibold leading-tight sm:text-base">UAC TEK CLUB</span>
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm md:flex">

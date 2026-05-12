@@ -1,8 +1,10 @@
 "use client";
 
 import { useTransition } from "react";
-import { Check, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+  ApproveDecisionButton,
+  RejectDecisionButton,
+} from "@/components/common/ReviewDecisionButtons";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { decideLabProposal } from "@/server/actions/labs";
@@ -48,30 +50,9 @@ export function ProposalQueue({ rows }: { rows: Row[] }) {
               </p>
             </div>
             {p.status === "PENDING" && (
-              <div className="flex flex-col gap-2">
-                <Button
-                  size="sm"
-                  onClick={() =>
-                    startTransition(async () => {
-                      await decideLabProposal({
-                        proposalId: p.proposalId,
-                        decision: "APPROVED",
-                      });
-                    })
-                  }
+              <div className="flex shrink-0 flex-row flex-wrap items-center gap-2">
+                <RejectDecisionButton
                   disabled={pending}
-                >
-                  {pending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Check className="mr-1 h-4 w-4" /> Approve
-                    </>
-                  )}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
                   onClick={() =>
                     startTransition(async () => {
                       await decideLabProposal({
@@ -80,10 +61,18 @@ export function ProposalQueue({ rows }: { rows: Row[] }) {
                       });
                     })
                   }
+                />
+                <ApproveDecisionButton
                   disabled={pending}
-                >
-                  <X className="mr-1 h-4 w-4" /> Reject
-                </Button>
+                  onClick={() =>
+                    startTransition(async () => {
+                      await decideLabProposal({
+                        proposalId: p.proposalId,
+                        decision: "APPROVED",
+                      });
+                    })
+                  }
+                />
               </div>
             )}
           </CardContent>

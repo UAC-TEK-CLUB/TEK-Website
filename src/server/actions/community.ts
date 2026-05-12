@@ -87,7 +87,7 @@ export async function createPost(raw: unknown) {
     revalidatePath("/");
     revalidatePath("/dashboard");
     revalidatePath(`/labs/${labId}`);
-    revalidatePath(`/member/labs/${labId}/manage`);
+    revalidatePath(`/labs/${labId}/console`);
     return post;
 }
 

@@ -1,10 +1,11 @@
+import { sortMeetingsCalendarDayDescTimeAsc } from "@/lib/meetingsSort";
 import { listAllMeetings } from "@/server/actions/meetings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MeetingForm } from "@/components/meetings/MeetingForm";
 import { MeetingList } from "@/components/meetings/MeetingList";
 
 export default async function AdminMeetingsPage() {
-  const meetings = await listAllMeetings();
+  const meetings = sortMeetingsCalendarDayDescTimeAsc(await listAllMeetings());
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

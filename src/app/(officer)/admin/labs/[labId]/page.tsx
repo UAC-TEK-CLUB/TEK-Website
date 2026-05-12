@@ -12,8 +12,21 @@ export default async function AdminLabDetail({
   params: { labId: string };
 }) {
   const me = await requireSiteAdmin();
-  const lab = await prisma.lab.findUnique({ where: { labId: params.labId } });
+  const lab = await prisma.lab.findUnique({
+    where: { labId: params.labId },
+    include: {
+      leaderAssignments: {
+        include: {
+          member: {
+            select: { memberId: true, firstName: true, lastName: true, email: true },
+          },
+        },
+      },
+    },
+  });
   if (!lab) notFound();
+
+  const currentLeaderMemberIds = lab.leaderAssignments.map((a) => a.memberId);
 
   const [roster, memberOptions] = await Promise.all([
     getLabRoster(params.labId),
@@ -23,6 +36,7 @@ export default async function AdminLabDetail({
         OR: [
           { memberType: "REGULAR" },
           { officerProfile: { officerRole: "LEADER" } },
+          { officerProfile: { officerRole: "PRESIDENT" } },
           { memberType: "OFFICER", officerProfile: null },
         ],
       },
@@ -37,6 +51,13 @@ export default async function AdminLabDetail({
     }),
   ]);
 
+  const rosterLeaders = lab.leaderAssignments.map((a) => a.member);
+  const memberIdsWithApplication = new Set(roster.map((r) => r.member.memberId));
+  const leaderRowsWithoutApplication = rosterLeaders.filter(
+    (m) => !memberIdsWithApplication.has(m.memberId)
+  ).length;
+  const rosterTableRowCount = roster.length + leaderRowsWithoutApplication;
+
   return (
     <div className="space-y-6">
       <div>
@@ -47,7 +68,7 @@ export default async function AdminLabDetail({
       {isPresident(me) ? (
         <SetLabLeaderForm
           labId={lab.labId}
-          currentLeaderId={lab.leaderMemberId}
+          currentLeaderMemberIds={currentLeaderMemberIds}
           memberOptions={memberOptions.map((m) => ({
             memberId: m.memberId,
             firstName: m.firstName,
@@ -59,16 +80,16 @@ export default async function AdminLabDetail({
       ) : (
         <div className="rounded-lg border bg-muted/20 p-4 text-sm text-muted-foreground">
           Only the <span className="font-medium text-foreground">president</span> can assign or
-          change the lab leader. Supervisors can still review the roster below.
+          change lab leaders (up to two). Supervisors can still review the roster below.
         </div>
       )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Roster ({roster.length})</CardTitle>
+          <CardTitle>Roster ({rosterTableRowCount})</CardTitle>
         </CardHeader>
         <CardContent>
-          <LabRosterTable rows={roster} />
+          <LabRosterTable rows={roster} leaders={rosterLeaders} />
         </CardContent>
       </Card>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,22 +15,38 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { uploadMemberImageFile } from "@/lib/client/memberImageUpload";
 import { uploadPhoto } from "@/server/actions/community";
 
 export function PhotoUploader() {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function onSubmit(formData: FormData) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     setError(null);
     startTransition(async () => {
       try {
-        await uploadPhoto({
-          url: formData.get("url"),
-          caption: formData.get("caption") || null,
-        });
+        const files = Array.from(fileRef.current?.files ?? []).filter((f) => f.size > 0);
+        if (files.length === 0) {
+          setError("Choose at least one image from your device.");
+          return;
+        }
+        const caption = (formData.get("caption") as string) || null;
+        for (const file of files) {
+          const url = await uploadMemberImageFile(file, "gallery");
+          await uploadPhoto({
+            url,
+            caption,
+          });
+        }
+        if (fileRef.current) fileRef.current.value = "";
         setOpen(false);
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed.");
       }
@@ -47,14 +64,21 @@ export function PhotoUploader() {
         <DialogHeader>
           <DialogTitle>Upload to gallery</DialogTitle>
           <DialogDescription>
-            Paste a public URL for now. The S3 presigned-upload flow will be wired in
-            production (see Phase 5 plan note).
+            Upload one or more JPEG, PNG, WebP, or GIF images from your device (up to 5 MB each).
+            Production uses S3-compatible storage when configured; local dev saves under{" "}
+            <code className="rounded bg-muted px-1 text-[11px]">/uploads</code>.
           </DialogDescription>
         </DialogHeader>
-        <form action={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="url">Image URL</Label>
-            <Input id="url" name="url" type="url" required placeholder="https://..." />
+            <Label htmlFor="gallery-file">From device</Label>
+            <Input
+              id="gallery-file"
+              ref={fileRef}
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/gif"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="caption">Caption</Label>
@@ -64,7 +88,7 @@ export function PhotoUploader() {
           <DialogFooter>
             <Button type="submit" disabled={pending}>
               {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Upload
+              Add to gallery
             </Button>
           </DialogFooter>
         </form>

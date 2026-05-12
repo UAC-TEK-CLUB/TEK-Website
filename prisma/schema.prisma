@@ -52,8 +52,7 @@ model Member {
   receivedMessages ChatMessage[]      @relation("Receiver")
   tutoringVideos   TutoringVideo[]
   passwordChangeTickets PasswordChangeTicket[]
-  /** Labs this member leads (lab leader dashboard). */
-  ledLabs          Lab[]              @relation("LabLeader")
+  labLeaderAssignments LabLeaderAssignment[]
 
   @@map("members")
 }
@@ -181,14 +180,24 @@ model Lab {
   description    String
   objective      String
   createdAt      DateTime @default(now()) @map("created_at")
-  leaderMemberId String?  @map("leader_member_id")
 
-  leader       Member?          @relation("LabLeader", fields: [leaderMemberId], references: [memberId], onDelete: SetNull)
-  applications LabApplication[]
-  announcements BulletinPost[]
-  spotlight    LeaderProject?
+  leaderAssignments LabLeaderAssignment[]
+  applications      LabApplication[]
+  announcements     BulletinPost[]
+  spotlight         LeaderProject?
 
   @@map("labs")
+}
+
+model LabLeaderAssignment {
+  labId    String @map("lab_id")
+  memberId String @map("member_id")
+
+  lab    Lab    @relation(fields: [labId], references: [labId], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [memberId], onDelete: Cascade)
+
+  @@id([labId, memberId])
+  @@map("lab_leader_assignments")
 }
 
 model LabApplication {
@@ -350,6 +359,8 @@ model LeaderProject {
   title        String
   description  String
   photoUrl     String   @map("photo_url")
+  /** Optional http(s) link (project site, demo, repo) shown on spotlight cards. */
+  websiteUrl   String?  @map("website_url")
   updatedAt    DateTime @updatedAt @map("updated_at")
   createdAt    DateTime @default(now()) @map("created_at")
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +11,14 @@ import {
   deleteLabSpotlightProject,
   upsertLabSpotlightProject,
 } from "@/server/actions/projects";
+import { uploadMemberImageFile } from "@/lib/client/memberImageUpload";
 
 type Existing = {
   projectId: string;
   title: string;
   description: string;
   photoUrl: string;
+  websiteUrl: string | null;
 };
 
 export function LeaderProjectForm({
@@ -25,22 +28,40 @@ export function LeaderProjectForm({
   labId: string;
   existing?: Existing | null;
 }) {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [photoUrl, setPhotoUrl] = useState(existing?.photoUrl ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  function onSubmit(formData: FormData) {
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
     setError(null);
     setSuccess(null);
     startTransition(async () => {
       try {
+        const file = fileRef.current?.files?.[0];
+        let finalPhotoUrl = photoUrl.trim();
+        if (file && file.size > 0) {
+          finalPhotoUrl = await uploadMemberImageFile(file, "spotlight");
+          setPhotoUrl(finalPhotoUrl);
+          if (fileRef.current) fileRef.current.value = "";
+        }
+        if (!finalPhotoUrl) {
+          setError("Choose an image file for the spotlight (JPEG, PNG, WebP, or GIF, up to 5 MB).");
+          return;
+        }
         await upsertLabSpotlightProject({
           labId,
           title: formData.get("title"),
           description: formData.get("description"),
-          photoUrl: formData.get("photoUrl"),
+          photoUrl: finalPhotoUrl,
+          websiteUrl: String(formData.get("websiteUrl") ?? ""),
         });
         setSuccess(existing ? "Spotlight updated." : "Spotlight published.");
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not save project.");
       }
@@ -56,6 +77,8 @@ export function LeaderProjectForm({
       try {
         await deleteLabSpotlightProject({ projectId: existing.projectId });
         setSuccess("Spotlight removed.");
+        setPhotoUrl("");
+        router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not delete project.");
       }
@@ -63,7 +86,7 @@ export function LeaderProjectForm({
   }
 
   return (
-    <form action={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="title">Project title</Label>
         <Input
@@ -76,15 +99,40 @@ export function LeaderProjectForm({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="photoUrl">Project photo URL</Label>
+        <Label htmlFor="spotlight-file">Project photo — from device</Label>
         <Input
-          id="photoUrl"
-          name="photoUrl"
-          type="url"
-          required
-          defaultValue={existing?.photoUrl}
-          placeholder="https://..."
+          id="spotlight-file"
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="cursor-pointer sm:max-w-md"
         />
+        <p className="text-xs text-muted-foreground">
+          JPEG, PNG, WebP, or GIF — up to 5 MB. Uses S3 when configured; otherwise dev saves under{" "}
+          <code className="rounded bg-muted px-1">/uploads</code>.
+          {existing?.photoUrl && (
+            <>
+              {" "}
+              Leave empty to keep the current image when you only change title or description.
+            </>
+          )}
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="websiteUrl">Project website (optional)</Label>
+        <Input
+          id="websiteUrl"
+          name="websiteUrl"
+          type="url"
+          inputMode="url"
+          maxLength={2048}
+          defaultValue={existing?.websiteUrl ?? ""}
+          placeholder="https://example.com or https://github.com/org/repo"
+        />
+        <p className="text-xs text-muted-foreground">
+          Shown as an external link on the homepage spotlight and your public lab page. Use a full{" "}
+          <code className="rounded bg-muted px-1">https://</code> address.
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="description">Description</Label>
@@ -107,12 +155,7 @@ export function LeaderProjectForm({
           {existing ? "Update spotlight" : "Publish spotlight"}
         </Button>
         {existing && (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            onClick={onDelete}
-          >
+          <Button type="button" variant="outline" disabled={pending} onClick={onDelete}>
             <Trash2 className="mr-2 h-4 w-4" />
             Delete
           </Button>

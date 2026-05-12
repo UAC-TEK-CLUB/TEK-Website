@@ -3,7 +3,8 @@ import { cn } from "@/lib/utils";
 
 type Token =
   | { type: "text"; value: string }
-  | { type: "link"; href: string; children: string };
+  | { type: "link"; href: string; children: string }
+  | { type: "image"; src: string; alt: string };
 
 function normalizeHttpUrl(raw: string): string | null {
   const trimmed = raw.trim();
@@ -16,11 +17,20 @@ function normalizeHttpUrl(raw: string): string | null {
   }
 }
 
+function normalizeImageSrc(raw: string): string | null {
+  const trimmed = raw.trim();
+  const http = normalizeHttpUrl(trimmed);
+  if (http) return http;
+  if (trimmed.startsWith("/") && !trimmed.includes("..")) return trimmed;
+  return null;
+}
+
 function trimBareUrlEnd(raw: string): string {
   return raw.replace(/[.,;:!?)]+$/, "");
 }
 
 const MD_LINK = /\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g;
+const MD_IMG = /!\[([^\]]*)\]\(([^)]+)\)/g;
 const BARE_URL = /\bhttps?:\/\/[^\s<>"']+/gi;
 
 function tokenizeBareUrls(segment: string): Token[] {
@@ -61,7 +71,8 @@ function mergeAdjacentText(tokens: Token[]): Token[] {
   return out;
 }
 
-function tokenize(text: string): Token[] {
+/** Markdown links + bare URLs (no images in this segment). */
+function tokenizeLinksOnly(text: string): Token[] {
   const tokens: Token[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
@@ -85,12 +96,35 @@ function tokenize(text: string): Token[] {
   return mergeAdjacentText(tokens);
 }
 
+function tokenize(text: string): Token[] {
+  const tokens: Token[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  const img = new RegExp(MD_IMG.source, MD_IMG.flags);
+  while ((m = img.exec(text)) !== null) {
+    if (m.index > last) {
+      tokens.push(...tokenizeLinksOnly(text.slice(last, m.index)));
+    }
+    const src = normalizeImageSrc(m[2]);
+    if (src) {
+      tokens.push({ type: "image", src, alt: m[1] || "" });
+    } else {
+      tokens.push({ type: "text", value: m[0] });
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) {
+    tokens.push(...tokenizeLinksOnly(text.slice(last)));
+  }
+  return mergeAdjacentText(tokens);
+}
+
 const linkClass =
   "font-medium text-primary underline underline-offset-2 hover:opacity-90 break-all";
 
 /**
- * Renders bulletin text with clickable links: paste `https://...` URLs, or use
- * markdown-style `[link text](https://example.com)`.
+ * Renders bulletin text with markdown images `![](url)`, clickable links `[text](https://...)`,
+ * and bare `https://...` URLs.
  */
 export function BulletinContent({
   text,
@@ -107,7 +141,7 @@ export function BulletinContent({
       {tokens.map((t, i) =>
         t.type === "text" ? (
           <React.Fragment key={`${linkKeyPrefix}-t-${i}`}>{t.value}</React.Fragment>
-        ) : (
+        ) : t.type === "link" ? (
           <a
             key={`${linkKeyPrefix}-a-${i}`}
             href={t.href}
@@ -117,6 +151,14 @@ export function BulletinContent({
           >
             {t.children}
           </a>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`${linkKeyPrefix}-img-${i}`}
+            src={t.src}
+            alt={t.alt}
+            className="my-2 block max-h-96 max-w-full rounded-md border object-contain"
+          />
         )
       )}
     </span>

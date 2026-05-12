@@ -68,3 +68,14 @@ export const setMembershipStatusSchema = z.object({
   memberId: z.string().min(1),
   status: z.enum(["ACTIVE", "INACTIVE", "ALUMNI", "SUSPENDED"]),
 });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Enter your current password."),
+    newPassword: registrationPasswordSchema,
+    confirmPassword: z.string().min(1, "Confirm your new password."),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "New password and confirmation must match.",
+  });

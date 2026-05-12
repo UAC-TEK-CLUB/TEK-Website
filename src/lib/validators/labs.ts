@@ -22,15 +22,13 @@ export const decideProposalSchema = z.object({
   decision: z.enum(["APPROVED", "REJECTED"]),
 });
 
-export const setLabLeaderSchema = z
+/** President assigns up to two distinct lab leaders (member IDs). Empty = clear all. */
+export const setLabLeadersSchema = z
   .object({
     labId: z.string().min(1),
-    leaderMemberId: z.union([z.string().min(1), z.null()]).optional(),
+    leaderMemberIds: z.array(z.string().min(1)).max(2),
   })
-  .transform((d) => ({
-    labId: d.labId,
-    leaderMemberId:
-      d.leaderMemberId == null || String(d.leaderMemberId).trim() === ""
-        ? null
-        : String(d.leaderMemberId).trim(),
-  }));
+  .transform((d) => {
+    const unique = [...new Set(d.leaderMemberIds.map((id) => id.trim()))];
+    return { labId: d.labId, leaderMemberIds: unique };
+  });

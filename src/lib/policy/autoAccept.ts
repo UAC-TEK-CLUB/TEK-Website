@@ -3,13 +3,19 @@ const ELIGIBLE_MAJORS = new Set([
   "business administration",
   "bba",
   "accounting",
+  "acctg",
   "information systems",
   "management information systems",
   "mis",
+  "is",
 ]);
 
 export function normalizeMajor(major: string) {
-  return major.toLowerCase().replace(/\s+/g, " ").trim();
+  return major
+    .toLowerCase()
+    .replace(/[().,/_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function isAutoEligible(major: string) {

@@ -4,12 +4,11 @@ import {
   CalendarDays,
   Crown,
   FlaskConical,
-  Plus,
   PlayCircle,
   Users,
   Video,
 } from "lucide-react";
-import { isExecutive, isSiteAdmin, requireMember } from "@/lib/permissions";
+import { isExecutive, isPresident, isSiteAdmin, requireMember } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,6 +32,7 @@ export default async function DashboardPage() {
 
   const siteAdmin = isSiteAdmin(user);
   const executive = isExecutive(user);
+  const president = isPresident(user);
   const meetingsHref = siteAdmin ? "/admin/meetings" : "/meetings";
   const meetingDetailPrefix = meetingsHref;
 
@@ -43,6 +43,8 @@ export default async function DashboardPage() {
     recentPending,
     beginnerVideos,
     bulletinHighlights,
+    leadership,
+    pendingLabProposals,
   ] = await Promise.all([
     prisma.meeting.findMany({
       where: { scheduledAt: { gte: new Date() } },
@@ -65,6 +67,18 @@ export default async function DashboardPage() {
       : Promise.resolve([]),
     prisma.tutoringVideo.count(),
     listBulletinHighlights(5),
+    prisma.member.findMany({
+      where: {
+        membershipStatus: "ACTIVE",
+        memberType: "OFFICER",
+        officerProfile: { officerRole: { in: ["PRESIDENT", "SUPERVISOR"] } },
+      },
+      include: { officerProfile: { select: { officerRole: true } } },
+      orderBy: { officerProfile: { officerRole: "asc" } },
+    }),
+    president
+      ? prisma.labProposal.count({ where: { status: "PENDING" } })
+      : Promise.resolve(0),
   ]);
 
   return (
@@ -81,6 +95,37 @@ export default async function DashboardPage() {
           <MembershipStatusBadge status={member.membershipStatus} />
         </div>
       </div>
+
+      {leadership.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">Club leadership</CardTitle>
+            </div>
+            <p className="text-xs font-normal text-muted-foreground">
+              President and faculty supervisor. Both can manage applicants, meetings, and admin tools.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {leadership.map((exec) => (
+              <div
+                key={exec.memberId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/20 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">{fullName(exec.firstName, exec.lastName)}</p>
+                  <p className="truncate text-xs text-muted-foreground">{exec.email}</p>
+                </div>
+                <RoleBadge
+                  memberType={exec.memberType}
+                  officerRole={exec.officerProfile?.officerRole}
+                />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <MemberAnnouncementsSection posts={bulletinHighlights} />
 
@@ -171,12 +216,23 @@ export default async function DashboardPage() {
                 Add tutoring video
               </Link>
             </Button>
-            <Button asChild variant="outline">
-              <Link href="/admin/proposals">
-                <Plus className="mr-2 h-4 w-4" />
-                Lab proposals
-              </Link>
-            </Button>
+            {president && (
+              <Button asChild variant="outline">
+                <Link href="/admin/proposals">
+                  <FlaskConical className="mr-2 h-4 w-4" />
+                  Lab proposals
+                  <span
+                    className={
+                      pendingLabProposals > 0
+                        ? "ml-2 rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground"
+                        : "ml-2 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground"
+                    }
+                  >
+                    {pendingLabProposals}
+                  </span>
+                </Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

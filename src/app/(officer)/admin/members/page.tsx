@@ -29,7 +29,10 @@ export default async function AdminMembersPage() {
         <p className="text-sm text-muted-foreground">
           Each person has one role: member, lab leader, supervisor, or president. Supervisors and
           presidents share full site administration. Lab leaders manage their lab roster and lab
-          announcements from the member sidebar.
+          announcements from the member sidebar. Faculty supervisors are shown as a fixed label;
+          use <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">npx prisma db seed</code>{" "}
+          to create or refresh that account (see <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">.env.example</code>
+          ). President and lab leader roles can be reassigned from the dropdown in this table.
         </p>
       </div>
 
@@ -58,7 +61,10 @@ export default async function AdminMembersPage() {
                   <TableCell className="font-mono text-xs">{m.username}</TableCell>
                   <TableCell className="font-mono text-xs">{m.universityId}</TableCell>
                   <TableCell>
-                    {m.officerProfile && canEditRoles ? (
+                    {m.officerProfile &&
+                    canEditRoles &&
+                    (m.officerProfile.officerRole === "PRESIDENT" ||
+                      m.officerProfile.officerRole === "LEADER") ? (
                       <OfficerRolePicker
                         memberId={m.memberId}
                         current={m.officerProfile.officerRole}

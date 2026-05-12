@@ -11,11 +11,11 @@ type SessionLike = {
 export async function canManageLabApplications(me: SessionLike, labId: string): Promise<boolean> {
   if (isSiteAdmin(me)) return true;
   if (me.memberType !== "OFFICER" || me.officerRole !== "LEADER") return false;
-  const lab = await prisma.lab.findUnique({
-    where: { labId },
-    select: { leaderMemberId: true },
+  const row = await prisma.labLeaderAssignment.findFirst({
+    where: { labId, memberId: me.memberId },
+    select: { labId: true },
   });
-  return lab?.leaderMemberId === me.memberId;
+  return !!row;
 }
 
 /** Approved lab roster, lab leader, or site admin — can read lab-scoped bulletin posts on the lab page. */
