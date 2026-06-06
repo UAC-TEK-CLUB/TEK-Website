@@ -55,7 +55,7 @@ export async function createPost(raw: unknown) {
 
   if (!labId) {
     if (!isSiteAdmin(me)) {
-      throw new Error("Only the president or supervisor can post club-wide announcements.");
+      throw new Error("Only site admins can post club-wide announcements (president-led, supervisor oversight).");
     }
     const post = await prisma.bulletinPost.create({
       data: {
@@ -72,7 +72,7 @@ export async function createPost(raw: unknown) {
   }
 
   if (!(await canManageLabApplications(me, labId))) {
-    throw new Error("You can only post announcements for a lab you lead (or as president/supervisor).");
+    throw new Error("You can only post announcements for a lab you lead (or as a site admin).");
   }
 
   const post = await prisma.bulletinPost.create({

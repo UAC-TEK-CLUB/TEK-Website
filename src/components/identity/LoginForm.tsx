@@ -16,17 +16,20 @@ export function LoginForm({ errorParam }: { errorParam?: string }) {
   function onSubmit(formData: FormData) {
     setError(null);
     startTransition(async () => {
-      const res = await signIn("credentials", {
-        username: formData.get("username"),
-        password: formData.get("password"),
-        redirect: false,
-      });
-      if (res?.error) {
-        setError("Invalid username or password.");
-        return;
+      try {
+        const res = await signIn("credentials", {
+          username: formData.get("username"),
+          password: formData.get("password"),
+          redirect: false,
+        });
+        if (!res?.ok || res.error) {
+          setError("Invalid username or password.");
+          return;
+        }
+        router.push("/dashboard");
+      } catch {
+        setError("Sign-in failed. Please try again.");
       }
-      router.push("/dashboard");
-      router.refresh();
     });
   }
 

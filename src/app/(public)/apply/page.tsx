@@ -8,8 +8,9 @@ export default function ApplyPage() {
         <CardHeader>
           <CardTitle>Apply to UAC TEK Club</CardTitle>
           <CardDescription>
-            All current undergraduates are welcome. Once an officer approves your
-            application, we&apos;ll email login credentials.
+            All current undergraduates are welcome. Once your application is approved,
+            we&apos;ll email an account activation link so you can choose your own
+            username and password.
           </CardDescription>
         </CardHeader>
         <CardContent>

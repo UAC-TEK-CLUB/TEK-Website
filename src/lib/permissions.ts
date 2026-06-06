@@ -8,7 +8,7 @@ export async function requireMember() {
   return session.user;
 }
 
-/** President or supervisor — full site administration (same powers). */
+/** Site administrators (President = primary admin; Supervisor = oversight/support admin). */
 const SITE_ADMIN_ROLES: OfficerRole[] = ["PRESIDENT", "SUPERVISOR"];
 
 export function isSiteAdmin(
@@ -44,7 +44,7 @@ export async function requireExecutive() {
   return session.user;
 }
 
-/** Alias: president and supervisor share full admin access. */
+/** Alias for routes shared by President and Supervisor admin scope. */
 export async function requireSiteAdmin() {
   return requireExecutive();
 }

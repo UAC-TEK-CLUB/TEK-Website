@@ -3,7 +3,7 @@ import { z } from "zod";
 export const createPostSchema = z.object({
   title: z.string().min(2).max(200),
   content: z.string().min(2).max(10000),
-  /** Club-wide (null) = president/supervisor only; set = lab announcement for that lab. */
+  /** Club-wide (null) = site-admin post (President primary, Supervisor oversight); set = lab announcement for that lab. */
   labId: z.string().min(1).optional().nullable(),
 });
 

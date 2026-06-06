@@ -59,6 +59,9 @@ export async function sendMail(message: MailMessage): Promise<void> {
       text: message.text,
       html: message.html,
     });
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[email] sent to ${message.to} (subject: ${message.subject})`);
+    }
   } catch (err) {
     // Never let a flaky mail server break a status change. The DB update has
     // already committed; surface the failure in logs so an officer can re-send.

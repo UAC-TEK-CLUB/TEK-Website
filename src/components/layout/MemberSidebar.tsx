@@ -51,7 +51,7 @@ export function MemberSidebar({
   officerRole,
   ledLabs,
 }: {
-  /** President or supervisor — full /admin access. */
+  /** Shared admin sidebar visibility (President primary admin; Supervisor oversight scope). */
   isSiteAdmin: boolean;
   /** Used to trim Administration links supervisors do not use. */
   officerRole: OfficerRole | null;

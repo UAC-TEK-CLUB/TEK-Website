@@ -20,7 +20,8 @@ export default async function BulletinPage() {
         <div className="min-w-0 flex-1 pr-4">
           <h1 className="text-2xl font-bold">Bulletin board</h1>
           <p className="text-sm text-muted-foreground">
-            Club-wide posts from the president and supervisors. Lab leader updates live on each
+            Club-wide posts led by the president, with supervisor oversight updates as needed.
+            Lab leader updates live on each
             lab&apos;s page for approved lab members.
             <br />
             All members can read; only executives can post here.

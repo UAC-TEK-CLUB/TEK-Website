@@ -11,6 +11,12 @@
 /.next/
 /out/
 
+# OpenNext (Cloudflare Workers build output)
+.open-next/
+
+# Wrangler local secrets (copy from .dev.vars.example)
+.dev.vars
+
 # production
 /build
 

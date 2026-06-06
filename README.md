@@ -83,7 +83,7 @@ TEK-Website/
 │   ├── middleware.ts                Auth gates + visitor cookie
 │   └── types/                       NextAuth + global module declarations
 ├── tailwind.config.ts
-├── next.config.js
+├── next.config.mjs
 └── package.json
 ```
 
@@ -106,6 +106,14 @@ TEK-Website/
 | `npm run db:seed` | Seed bootstrap officer + sample labs/meeting |
 | `npm run db:studio` | Open Prisma Studio |
 | `npm run lint` | ESLint |
+| `npm run cf:build` | OpenNext bundle for **Cloudflare Workers** |
+| `npm run cf:deploy` | Build + `wrangler deploy` (see `docs/deploy-cloudflare.md`) |
+
+## Deploying to Cloudflare (Workers)
+
+The repo includes **OpenNext for Cloudflare** (`wrangler.jsonc`, `open-next.config.ts`, `npm run cf:*`). Full steps, secrets, and Prisma notes: **[docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)**.
+
+**Alternative:** run the **`Dockerfile`** on any host and optionally front it with a **Cloudflare Tunnel** (same doc).
 
 ## Deploying to AWS (handoff guide)
 

@@ -104,7 +104,8 @@ export default async function DashboardPage() {
               <CardTitle className="text-base">Club leadership</CardTitle>
             </div>
             <p className="text-xs font-normal text-muted-foreground">
-              President and faculty supervisor. Both can manage applicants, meetings, and admin tools.
+              President leads website administration. The faculty supervisor provides oversight
+              and supports selected admin workflows.
             </p>
           </CardHeader>
           <CardContent className="space-y-3">

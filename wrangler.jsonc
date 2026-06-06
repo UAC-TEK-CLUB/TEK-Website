@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tek-website",
+  "account_id": "5dd3557b234c38e271e8d387c88a4b9e",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-05-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "vars": {
+    "AUTH_TRUST_HOST": "true",
+    "NEXTAUTH_URL": "https://tek-website.kojh0918.workers.dev",
+    "APP_URL": "https://tek-website.kojh0918.workers.dev"
+  },
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "tek-website"
+    }
+  ]
+}

@@ -27,9 +27,10 @@ export default async function AdminMembersPage() {
       <div>
         <h1 className="text-2xl font-bold">Members</h1>
         <p className="text-sm text-muted-foreground">
-          Each person has one role: member, lab leader, supervisor, or president. Supervisors and
-          presidents share full site administration. Lab leaders manage their lab roster and lab
-          announcements from the member sidebar. Faculty supervisors are shown as a fixed label;
+          Each person has one role: member, lab leader, supervisor, or president. Presidents are
+          the main website administrators; supervisors oversee and support selected admin areas.
+          Lab leaders manage their lab roster and lab announcements from the member sidebar.
+          Faculty supervisors are shown as a fixed label;
           use <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">npx prisma db seed</code>{" "}
           to create or refresh that account (see <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">.env.example</code>
           ). President and lab leader roles can be reassigned from the dropdown in this table.
