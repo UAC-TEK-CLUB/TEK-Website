@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMember, requireSiteAdmin, isSiteAdmin } from "@/lib/permissions";
+import { revalidateMeeting, revalidateMeetingAttendance } from "@/lib/revalidate";
 import {
   createMeetingSchema,
   recordAttendanceSchema,
@@ -21,11 +21,7 @@ export async function createMeeting(raw: unknown) {
       notes: data.notes ?? null,
     },
   });
-  revalidatePath("/meetings");
-  revalidatePath("/admin/meetings");
-  revalidatePath(`/meetings/${meeting.meetingId}`);
-  revalidatePath(`/admin/meetings/${meeting.meetingId}`);
-  revalidatePath("/dashboard");
+  revalidateMeeting(meeting.meetingId);
   return meeting;
 }
 
@@ -42,21 +38,13 @@ export async function updateMeeting(raw: unknown) {
       notes: data.notes ?? null,
     },
   });
-  revalidatePath("/meetings");
-  revalidatePath("/admin/meetings");
-  revalidatePath(`/meetings/${data.meetingId}`);
-  revalidatePath(`/admin/meetings/${data.meetingId}`);
-  revalidatePath("/dashboard");
+  revalidateMeeting(data.meetingId);
 }
 
 export async function deleteMeeting(meetingId: string) {
   await requireSiteAdmin();
   await prisma.meeting.delete({ where: { meetingId } });
-  revalidatePath("/meetings");
-  revalidatePath(`/meetings/${meetingId}`);
-  revalidatePath("/admin/meetings");
-  revalidatePath(`/admin/meetings/${meetingId}`);
-  revalidatePath("/dashboard");
+  revalidateMeeting(meetingId);
 }
 
 export async function recordAttendance(raw: unknown) {
@@ -83,8 +71,7 @@ export async function recordAttendance(raw: unknown) {
     update: { attendanceStatus: data.status },
   });
 
-  revalidatePath(`/meetings/${data.meetingId}`);
-  revalidatePath(`/admin/meetings/${data.meetingId}`);
+  revalidateMeetingAttendance(data.meetingId);
 }
 
 export async function bulkMarkAbsent(meetingId: string) {
@@ -108,7 +95,7 @@ export async function bulkMarkAbsent(meetingId: string) {
     )
   );
 
-  revalidatePath(`/admin/meetings/${meetingId}`);
+  revalidateMeetingAttendance(meetingId);
 }
 
 export async function listUpcomingMeetings() {

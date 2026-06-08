@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
+import { getS3Config } from "@/lib/env";
 
 const ALLOWED = new Map([
   ["image/jpeg", "jpg"],
@@ -11,12 +12,8 @@ const ALLOWED = new Map([
 ]);
 
 export function isS3Configured(): boolean {
-  return !!(
-    process.env.S3_BUCKET &&
-    process.env.S3_ACCESS_KEY_ID &&
-    process.env.S3_SECRET_ACCESS_KEY &&
-    process.env.S3_PUBLIC_URL
-  );
+  const s3 = getS3Config();
+  return !!(s3.bucket && s3.accessKeyId && s3.secretAccessKey && s3.publicUrl);
 }
 
 function extensionForMime(mime: string): string | undefined {
@@ -24,18 +21,21 @@ function extensionForMime(mime: string): string | undefined {
 }
 
 function s3Client(): S3Client {
+  const s3 = getS3Config();
   return new S3Client({
-    region: process.env.S3_REGION || "auto",
-    endpoint: process.env.S3_ENDPOINT || undefined,
+    region: s3.region,
+    endpoint: s3.endpoint || undefined,
     credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
+      accessKeyId: s3.accessKeyId!,
+      secretAccessKey: s3.secretAccessKey!,
     },
-    forcePathStyle: !!process.env.S3_ENDPOINT,
+    forcePathStyle: !!s3.endpoint,
   });
 }
 
-export type MemberImageUploadPrefix = "gallery" | "spotlight" | "lab-announcement";
+import type { MemberImageUploadPrefix } from "@/lib/constants";
+
+export type { MemberImageUploadPrefix };
 
 export type MemberImageUploadInput = {
   memberId: string;
@@ -57,16 +57,16 @@ export async function uploadMemberImageBuffer(input: MemberImageUploadInput): Pr
   const key = `${input.prefix}/${input.memberId}/${randomUUID()}.${ext}`;
 
   if (isS3Configured()) {
-    const bucket = process.env.S3_BUCKET!;
+    const s3 = getS3Config();
     await s3Client().send(
       new PutObjectCommand({
-        Bucket: bucket,
+        Bucket: s3.bucket!,
         Key: key,
         Body: input.buffer,
         ContentType: input.contentType,
       })
     );
-    const base = process.env.S3_PUBLIC_URL!.replace(/\/$/, "");
+    const base = s3.publicUrl!.replace(/\/$/, "");
     return `${base}/${key}`;
   }
 

@@ -4,22 +4,67 @@ Next.js 14 + TypeScript + Prisma + PostgreSQL portal for the UAC TEK Club —
 the University of Utah Asia Campus coding & analytics society.
 Styled with Tailwind CSS, shadcn/ui, and Lucide React.
 
+**Repository:** [github.com/UAC-TEK-CLUB/TEK-Website](https://github.com/UAC-TEK-CLUB/TEK-Website)
+
 ## Live site
 
-**https://uactek.kojh0918.workers.dev**
+| | URL |
+|---|-----|
+| **Current (interim)** | **https://uactek.kojh0918.workers.dev** |
+| **Target** | `https://www.uactekclub.com` (custom domain — see [Next steps](#next-steps)) |
 
-Hosted on Cloudflare Workers (see `wrangler.jsonc`). When a custom domain is added, update this link and `NEXTAUTH_URL` / `APP_URL` in `wrangler.jsonc`.
+Hosted on **Cloudflare Workers** via OpenNext. Configuration: `wrangler.jsonc`. Full deploy runbook: **[docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)**.
+
+## Production hosting
+
+| Layer | Service |
+|-------|---------|
+| Web app | Cloudflare Worker (`npm run cf:deploy`) |
+| Database | Neon PostgreSQL (`DATABASE_URL` — Worker secret) |
+| Auth | Auth.js (NextAuth v5), username + password, JWT sessions |
+| Secrets | `DATABASE_URL`, `AUTH_SECRET` (and optional `SMTP_*`) — **never commit** |
+
+Deploy from your machine:
+
+```bash
+npm run cf:deploy   # build → wrangler deploy → smoke tests
+```
+
+## Next steps
+
+A **custom domain** is required before sharing the site widely with members.
+
+The URL members use must match what the app is configured with:
+
+- `NEXTAUTH_URL` and `APP_URL` in `wrangler.jsonc` (and Worker secrets if you override them in the dashboard)
+- Links in transactional email (application approval, password reset, find-id)
+
+If members visit `www.uactekclub.com` but the app still thinks the site is `*.workers.dev`, login, redirects, and email links can break. **The public URL and config must match.**
+
+### When the domain is ready
+
+1. **Cloudflare dashboard** → Worker `uactek` → **Custom domains** → add `www.uactekclub.com` (and apex if desired).
+2. Update `wrangler.jsonc`:
+   ```jsonc
+   "NEXTAUTH_URL": "https://www.uactekclub.com",
+   "APP_URL": "https://www.uactekclub.com"
+   ```
+3. Redeploy: `npm run cf:deploy`
+4. Stop sharing the `*.workers.dev` URL with members (optionally remove the workers.dev route under Workers & Pages → Triggers).
+5. **Email on your domain** — verify the sending domain with a provider (Resend is documented in `.env.example`), then set Worker secrets: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` (e.g. `UAC TEK Club <noreply@uactekclub.com>`). Until SMTP is set, emails are logged to the Worker console and officers can copy setup links from the admin UI.
+
+See **[docs/deploy-cloudflare.md § Custom domain & email](docs/deploy-cloudflare.md)** for the full checklist.
 
 ## Stack
 
 - **Framework:** Next.js 14 (App Router, Server Actions)
 - **Language:** TypeScript (strict)
 - **Styling:** Tailwind CSS, shadcn/ui, Lucide icons
-- **Auth:** Auth.js (NextAuth v5) with Prisma adapter, credentials provider
+- **Auth:** Auth.js (NextAuth v5), credentials provider, JWT sessions (no OAuth)
 - **DB / ORM:** PostgreSQL + Prisma 6
 - **Validation:** Zod
 
-## Getting started
+## Getting started (local)
 
 ```bash
 cp .env.example .env
@@ -59,7 +104,7 @@ The seed also stores an official **university / campus ID** on that member recor
 
 ```
 TEK-Website/
-├── legacy/                          Frozen Django reference UI
+├── legacy/                          Frozen Django archive (not deployed; see legacy/README.md)
 ├── prisma/
 │   ├── schema.prisma                BCNF schema (Members, Officers, Labs, etc.)
 │   └── seed.ts
@@ -71,95 +116,61 @@ TEK-Website/
 │   │   ├── login/, register/        Auth pages
 │   │   └── api/auth/[...nextauth]/  NextAuth handler
 │   ├── components/
-│   │   ├── ui/                      shadcn primitives
-│   │   ├── layout/                  Navbar, Sidebar, Footer
-│   │   ├── identity/                Member, mentor, role components
-│   │   ├── recruitment/             Application & approval components
-│   │   ├── labs/                    Lab catalogue, proposal, roster
-│   │   ├── meetings/                Calendar, attendance
-│   │   ├── community/               Bulletin, gallery, chat, tutoring
-│   │   └── admin/                   Health dashboard
-│   ├── server/actions/              One file per domain: identity, recruitment, labs, meetings, community, admin
-│   ├── lib/
-│   │   ├── prisma.ts                Singleton client
-│   │   ├── auth.ts                  NextAuth v5 config
-│   │   ├── permissions.ts           requireMember(), requireOfficer(level)
-│   │   ├── validators/              Zod schemas
-│   │   └── utils.ts
-│   ├── middleware.ts                Auth gates + visitor cookie
-│   └── types/                       NextAuth + global module declarations
-├── tailwind.config.ts
-├── next.config.mjs
+│   ├── server/actions/              Server Actions per domain
+│   ├── lib/                         prisma, auth, permissions, validators
+│   └── middleware.ts                Auth gates + visitor cookie
+├── docs/deploy-cloudflare.md        Production deploy runbook
+├── wrangler.jsonc                   Cloudflare Worker config
 └── package.json
 ```
 
-## Phase status
+## Architecture (code organization)
 
-- [x] **Phase 0** — Archive Django app to `legacy/`, scaffold Next.js + Tailwind + shadcn, install Prisma, NextAuth v5, Zod, Lucide
-- [x] **Phase 1** — DB & Identity: schema.prisma, NextAuth credentials, ISA-aware register/login/profile/mentor UI
-- [x] **Phase 2** — Recruitment: visitor cookie middleware, public application form, officer applicant queue with approve→Member transaction
-- [x] **Phase 3** — Labs & Operations: lab catalogue, member lab applications, lab proposals, officer review (auto-creates Lab on approval)
-- [x] **Phase 4** — Events & Attendance: meetings CRUD, member check-in, officer attendance reports (M:N AttendanceRecord)
-- [x] **Phase 5** — Community & Admin: bulletin board with pinning, gallery uploads, 1:1 chat, tutoring scheduler, website health logs
+| Layer | Location | Role |
+|-------|----------|------|
+| Routes (URLs) | `src/lib/routes.ts` | Single source for path builders (`routes.lab()`, `routes.meetingsList()`, …) |
+| Cache invalidation | `src/lib/revalidate.ts` | Bundled `revalidatePath` calls after server actions |
+| Constants | `src/lib/constants.ts` | Shared cookies, upload limits, image prefixes |
+| Env | `src/lib/env.ts` | SMTP, S3, `APP_URL`, `AUTH_SECRET` getters |
+| Session shape | `src/lib/session.ts` | `SessionLike` for access-control helpers |
+| Validators | `src/lib/validators/` | Zod schemas; shared primitives in `common.ts` |
+| Server actions | `src/server/actions/` | One file per domain (identity, labs, meetings, …) |
+| Access control | `src/lib/permissions.ts`, `labAccess.ts`, `galleryAccess.ts` | `requireMember`, `requireSiteAdmin`, lab-scoped checks |
+| UI shells | `src/components/layout/` | `AuthPageShell`, `MemberShell`, `MemberSidebar` |
+
+Public forms that must not throw (apply, register) return `{ ok, error? }` via helpers in `src/lib/actionResult.ts`. Admin actions continue to throw on invalid input.
 
 ## Scripts
 
 | Command | Description |
 | --- | --- |
 | `npm run dev` | Start dev server |
-| `npm run build` | Production build |
-| `npm run db:migrate` | Run Prisma migrations |
+| `npm run build` | Production build (Node host) |
+| `npm run db:migrate` | Run Prisma migrations (local) |
+| `npm run db:deploy` | Apply migrations to production DB |
 | `npm run db:seed` | Seed bootstrap officer + sample labs/meeting |
 | `npm run db:studio` | Open Prisma Studio |
 | `npm run lint` | ESLint |
 | `npm run cf:build` | Prisma WASM patch + OpenNext bundle + verify gate |
 | `npm run cf:verify` | Re-check last `cf:build` (WASM + patch present) |
 | `npm run cf:smoke` | Post-deploy HTTP smoke tests (login optional via env) |
-| `npm run cf:deploy` | `cf:build` + deploy + smoke (see `docs/deploy-cloudflare.md`) |
+| `npm run cf:smoke:auth` | Neon sign-up/register smoke tests |
+| `npm run cf:deploy` | `cf:build` + deploy + smoke |
 
 ## Deploying to Cloudflare (Workers)
 
-The repo includes **OpenNext for Cloudflare** (`wrangler.jsonc`, `open-next.config.ts`, `npm run cf:*`). Full steps, secrets, and Prisma notes: **[docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)**.
+The repo includes **OpenNext for Cloudflare** (`wrangler.jsonc`, `open-next.config.ts`, `npm run cf:*`). Full steps, secrets, Prisma WASM, custom domain, and email: **[docs/deploy-cloudflare.md](docs/deploy-cloudflare.md)**.
 
-**Alternative:** run the **`Dockerfile`** on any host and optionally front it with a **Cloudflare Tunnel** (same doc).
-
-## Deploying to AWS (handoff guide)
-
-The app is built database-agnostic; switching from local Postgres to AWS RDS / Aurora is a `DATABASE_URL` change plus running migrations. Recommended hosts: **AWS Amplify** or **ECS + Fargate** for the Next.js app, **RDS for PostgreSQL** for the database.
-
-1. Provision a Postgres database (RDS Postgres 16, `db.t4g.micro` is enough for early stage). Note the endpoint and credentials.
-2. On the Next.js host, set production environment variables (mirror everything in `.env.example`):
-   ```
-   DATABASE_URL=postgresql://USER:PASS@<rds-endpoint>:5432/tek_club?sslmode=require
-   AUTH_SECRET=<openssl rand -base64 32>
-   NEXTAUTH_URL=https://<your-domain>
-   AUTH_TRUST_HOST=true
-   S3_ENDPOINT=...   S3_BUCKET=...   S3_ACCESS_KEY_ID=...   S3_SECRET_ACCESS_KEY=...   S3_PUBLIC_URL=...
-   APP_URL=https://<your-domain>
-   SMTP_HOST=email-smtp.<region>.amazonaws.com   SMTP_PORT=587   SMTP_USER=<ses-smtp-user>   SMTP_PASSWORD=<ses-smtp-password>   EMAIL_FROM="UAC TEK Club <noreply@your-domain>"
-   ```
-3. Apply the committed migrations to RDS (do **not** run `migrate dev` against prod):
-   ```bash
-   npm run db:deploy
-   ```
-4. Optional first-run seed:
-   ```bash
-   npm run db:seed
-   ```
-5. Build and start:
-   ```bash
-   npm run build && npm start
-   ```
-
-The committed `prisma/migrations/` directory is the source of truth for the schema. Any future schema change must go through `npm run db:migrate -- --name <change-name>` locally, then be committed and applied in prod via `db:deploy`.
+An optional **Docker + Cloudflare Tunnel** fallback is documented in the same file if Workers are not an option.
 
 ## Notes for production
 
-- **Gallery uploads:** the `PhotoUploader` component currently accepts a public URL. Wire S3-compatible presigned uploads (R2 / Supabase Storage) before launch — see `.env.example` `S3_*` variables.
-- **Realtime chat:** `ChatThread` polls on `router.refresh()` after sends. For production, swap in Supabase Realtime or Pusher Channels per the Phase 5 plan.
-- **Email:** transactional email (acceptance / pending / rejection) is sent via SMTP using `nodemailer`. If `SMTP_HOST` is unset (e.g. in local dev) the emails are written to the server console instead, so the flow still works without a provider. Recommended providers:
-  - **AWS SES** — best fit for the AWS deployment path. Verify a sending domain in SES, request production access (out of sandbox), then create SMTP credentials and plug them into `SMTP_*`.
-  - **Gmail App Password** — fine for early demos. Enable 2FA on the Google account, generate an App Password, set `SMTP_HOST=smtp.gmail.com`, `SMTP_USER=<gmail address>`, `SMTP_PASSWORD=<app password>`.
-  - **Resend** — `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASSWORD=<RESEND_API_KEY>`.
-  Officers also still see the `/register?token=...` URL in the approval dialog so they can share it manually as a fallback.
-- **Visitor logging:** middleware sets a `tek_visitor_id` cookie. The `Visitor` row is created when an applicant submits a form; you can extend the middleware to write rows directly if you want pure traffic logs.
+- **Public URL alignment:** `NEXTAUTH_URL`, `APP_URL`, and the domain members bookmark must be identical (see [Next steps](#next-steps)).
+- **Gallery uploads:** the `PhotoUploader` component currently accepts a public URL. Wire S3-compatible presigned uploads (R2 / Supabase Storage) before relying on member uploads — see `.env.example` `S3_*` variables.
+- **Realtime chat:** `ChatThread` polls on `router.refresh()` after sends. For live updates, consider Supabase Realtime or Pusher Channels.
+- **Email:** transactional email (acceptance / pending / rejection / recovery) uses SMTP via `nodemailer`. If `SMTP_HOST` is unset, emails are written to the server console. For production, verify your club domain with **Resend** (see `.env.example`) and set `SMTP_*` + `EMAIL_FROM` on the Worker. Officers can still copy `/register?token=...` from the approval dialog as a fallback.
+- **Visitor logging:** middleware sets a `tek_visitor_id` cookie. The `Visitor` row is created when an applicant submits a form.
+
+## Development history
+
+Phases 0–5 (Django archive → identity → recruitment → labs → meetings → community) are complete. The original Django app lives in `legacy/` (read-only archive; restore via `git checkout v0-django-snapshot` if needed).

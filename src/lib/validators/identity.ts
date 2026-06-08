@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { emailField, entityId, officerRoleEnum, personName } from "@/lib/validators/common";
 
 const RESERVED_USERNAMES = new Set([
   "admin",
@@ -39,7 +40,7 @@ export const registrationPasswordSchema = z
   );
 
 export const completeRegistrationSchema = z.object({
-  token: z.string().min(1),
+  token: entityId,
   username: usernameSchema,
   password: registrationPasswordSchema,
   expectedGraduation: z.coerce.date(),
@@ -47,25 +48,25 @@ export const completeRegistrationSchema = z.object({
 export type CompleteRegistrationInput = z.infer<typeof completeRegistrationSchema>;
 
 export const updateProfileSchema = z.object({
-  firstName: z.string().min(1).max(60),
-  lastName: z.string().min(1).max(60),
-  email: z.string().email(),
+  firstName: personName,
+  lastName: personName,
+  email: emailField,
   expectedGraduation: z.coerce.date().optional(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 export const promoteOfficerSchema = z.object({
-  memberId: z.string().min(1),
-  officerRole: z.enum(["PRESIDENT", "SUPERVISOR", "LEADER"]).default("LEADER"),
+  memberId: entityId,
+  officerRole: officerRoleEnum.default("LEADER"),
 });
 
 export const setOfficerRoleSchema = z.object({
-  memberId: z.string().min(1),
-  officerRole: z.enum(["PRESIDENT", "SUPERVISOR", "LEADER"]),
+  memberId: entityId,
+  officerRole: officerRoleEnum,
 });
 
 export const setMembershipStatusSchema = z.object({
-  memberId: z.string().min(1),
+  memberId: entityId,
   status: z.enum(["ACTIVE", "INACTIVE", "ALUMNI", "SUSPENDED"]),
 });
 

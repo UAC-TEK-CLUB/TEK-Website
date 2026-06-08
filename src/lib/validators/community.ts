@@ -1,19 +1,12 @@
 import { z } from "zod";
+import { entityId, imageUrlOrPath } from "@/lib/validators/common";
 
 export const createPostSchema = z.object({
   title: z.string().min(2).max(200),
   content: z.string().min(2).max(10000),
   /** Club-wide (null) = site-admin post (President primary, Supervisor oversight); set = lab announcement for that lab. */
-  labId: z.string().min(1).optional().nullable(),
+  labId: entityId.optional().nullable(),
 });
-
-const imageUrlOrPath = z
-  .string()
-  .min(1)
-  .refine(
-    (s) => /^https?:\/\//i.test(s) || s.startsWith("/"),
-    "Must be an http(s) URL or a path starting with /"
-  );
 
 export const uploadPhotoSchema = z.object({
   url: imageUrlOrPath,
@@ -21,7 +14,7 @@ export const uploadPhotoSchema = z.object({
 });
 
 export const sendMessageSchema = z.object({
-  receiverId: z.string().min(1),
+  receiverId: entityId,
   content: z.string().min(1).max(2000),
 });
 

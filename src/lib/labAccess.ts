@@ -1,12 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import type { OfficerRole } from "@prisma/client";
 import { isSiteAdmin } from "@/lib/permissions";
+import type { SessionLike } from "@/lib/session";
 
-type SessionLike = {
-  memberId: string;
-  memberType: string;
-  officerRole?: OfficerRole | null;
-};
+export type { SessionLike };
 
 export async function canManageLabApplications(me: SessionLike, labId: string): Promise<boolean> {
   if (isSiteAdmin(me)) return true;

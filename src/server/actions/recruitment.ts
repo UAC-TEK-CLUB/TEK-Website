@@ -1,9 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
+import { firstZodFieldError } from "@/lib/actionResult";
+import { VISITOR_COOKIE } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { requireExecutive, requirePresident, requireSiteAdmin } from "@/lib/permissions";
+import { revalidateApplicants } from "@/lib/revalidate";
+import { routes } from "@/lib/routes";
 import { fullName } from "@/lib/utils";
 import {
   submitApplicationSchema,
@@ -18,8 +21,6 @@ import {
   rejectionEmail,
 } from "@/lib/mail/templates";
 import type { ApplicationStatus } from "@prisma/client";
-
-const VISITOR_COOKIE = "tek_visitor_id";
 
 export async function recordVisit() {
   const cookieStore = cookies();
@@ -48,25 +49,17 @@ export type SubmitApplicationResult =
   | { ok: true; accepted: false }
   | { ok: false; error: string };
 
-function applicationValidationError(raw: unknown): string {
-  const parsed = submitApplicationSchema.safeParse(raw);
-  if (parsed.success) return "";
-  const fe = parsed.error.flatten().fieldErrors;
-  return (
-    fe.universityId?.[0] ??
-    fe.firstName?.[0] ??
-    fe.lastName?.[0] ??
-    fe.email?.[0] ??
-    fe.major?.[0] ??
-    fe.codingExperience?.[0] ??
-    "Please check your application and try again."
-  );
-}
-
 export async function submitApplication(raw: unknown): Promise<SubmitApplicationResult> {
   const parsed = submitApplicationSchema.safeParse(raw);
   if (!parsed.success) {
-    return { ok: false, error: applicationValidationError(raw) };
+    return {
+      ok: false,
+      error: firstZodFieldError(
+        submitApplicationSchema,
+        raw,
+        "Please check your application and try again."
+      ),
+    };
   }
   const data = parsed.data;
 
@@ -127,10 +120,10 @@ export async function submitApplication(raw: unknown): Promise<SubmitApplication
     };
   }
 
-  revalidatePath("/admin/applicants");
+  revalidateApplicants();
 
   if (accepted && application.accountSetupToken) {
-    const registerPath = `/register?token=${application.accountSetupToken}`;
+    const registerPath = routes.register(application.accountSetupToken);
     await sendMail(
       acceptanceEmail({
         to: data.email,
@@ -174,7 +167,7 @@ export async function decideApplication(raw: unknown) {
       where: { clubAppId: data.clubAppId },
       data: { status: data.decision },
     });
-    revalidatePath("/admin/applicants");
+    revalidateApplicants();
 
     if (data.decision === "REJECTED") {
       await sendMail(
@@ -188,7 +181,7 @@ export async function decideApplication(raw: unknown) {
   }
 
   const accountSetupToken = application.accountSetupToken ?? crypto.randomUUID();
-  const registerPath = `/register?token=${accountSetupToken}`;
+  const registerPath = routes.register(accountSetupToken);
 
   await prisma.clubApplication.update({
     where: { clubAppId: data.clubAppId },
@@ -198,7 +191,7 @@ export async function decideApplication(raw: unknown) {
     },
   });
 
-  revalidatePath("/admin/applicants");
+  revalidateApplicants();
 
   await sendMail(
     acceptanceEmail({
@@ -236,14 +229,14 @@ export async function resendAccountSetupLink(raw: unknown) {
   }
 
   const accountSetupToken = crypto.randomUUID();
-  const registerPath = `/register?token=${accountSetupToken}`;
+  const registerPath = routes.register(accountSetupToken);
 
   await prisma.clubApplication.update({
     where: { clubAppId: data.clubAppId },
     data: { accountSetupToken },
   });
 
-  revalidatePath("/admin/applicants");
+  revalidateApplicants();
 
   await sendMail(
     acceptanceEmail({

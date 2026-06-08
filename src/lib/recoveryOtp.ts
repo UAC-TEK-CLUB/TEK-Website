@@ -1,14 +1,9 @@
 import { createHash, randomInt, timingSafeEqual } from "crypto";
+import { getAuthSecret } from "@/lib/env";
 
 const OTP_TTL_MS = 15 * 60 * 1000;
 export const RECOVERY_MAX_OTP_ATTEMPTS = 8;
 export const PASSWORD_TICKET_TTL_MS = 45 * 60 * 1000;
-
-function recoverySecret(): string {
-  const s = process.env.AUTH_SECRET;
-  if (!s) throw new Error("AUTH_SECRET is not configured.");
-  return s;
-}
 
 /** Normalize user-entered OTP to six digits (leading zeros). */
 export function normalizeOtpInput(code: string): string {
@@ -19,7 +14,7 @@ export function normalizeOtpInput(code: string): string {
 export function hashRecoveryOtp(code: string): string {
   const normalized = normalizeOtpInput(code);
   return createHash("sha256")
-    .update(`${recoverySecret()}:recovery-otp:${normalized}`)
+    .update(`${getAuthSecret()}:recovery-otp:${normalized}`)
     .digest("hex");
 }
 

@@ -1,4 +1,4 @@
-import { MemberSidebar } from "@/components/layout/MemberSidebar";
+import { MemberShell } from "@/components/layout/MemberShell";
 import { PresidentMemberAlerts } from "@/components/recruitment/PresidentMemberAlerts";
 import { isPresident, isSiteAdmin, requireMember } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
@@ -11,16 +11,13 @@ export default async function MemberLayout({ children }: { children: React.React
     orderBy: { labName: "asc" },
   });
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="container flex flex-1 gap-6 px-0 py-0 md:px-6">
-        <MemberSidebar
-          isSiteAdmin={isSiteAdmin(user)}
-          officerRole={user.officerRole ?? null}
-          ledLabs={ledLabs}
-        />
-        <main className="flex-1 px-4 py-6 md:px-0">{children}</main>
-      </div>
-      {isPresident(user) && <PresidentMemberAlerts />}
-    </div>
+    <MemberShell
+      isSiteAdmin={isSiteAdmin(user)}
+      officerRole={user.officerRole ?? null}
+      ledLabs={ledLabs}
+      alerts={isPresident(user) ? <PresidentMemberAlerts /> : undefined}
+    >
+      {children}
+    </MemberShell>
   );
 }

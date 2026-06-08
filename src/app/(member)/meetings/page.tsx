@@ -5,6 +5,7 @@ import { MeetingList } from "@/components/meetings/MeetingList";
 import { MeetingForm } from "@/components/meetings/MeetingForm";
 import { isSiteAdmin, requireMember } from "@/lib/permissions";
 import { getAttendanceStats } from "@/server/actions/meetings";
+import { routes } from "@/lib/routes";
 
 export default async function MemberMeetingsPage() {
   const me = await requireMember();
@@ -14,7 +15,7 @@ export default async function MemberMeetingsPage() {
   const past = meetings.filter((m) => m.scheduledAt < now);
   const stats = await getAttendanceStats(me.memberId);
   const siteAdmin = isSiteAdmin(me);
-  const meetingDetailPrefix = siteAdmin ? "/admin/meetings" : "/meetings";
+  const meetingDetailPrefix = routes.meetingsList(siteAdmin);
 
   return (
     <div className="space-y-6">

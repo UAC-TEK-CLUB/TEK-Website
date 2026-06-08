@@ -1,14 +1,13 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import {
-  uploadMemberImageBuffer,
+  MEMBER_IMAGE_MAX_BYTES,
+  MEMBER_IMAGE_UPLOAD_PREFIX_SET,
   type MemberImageUploadPrefix,
-} from "@/lib/uploads/memberImageUpload";
+} from "@/lib/constants";
+import { uploadMemberImageBuffer } from "@/lib/uploads/memberImageUpload";
 
 export const runtime = "nodejs";
-
-const MAX_BYTES = 5 * 1024 * 1024;
-const PREFIXES = new Set<MemberImageUploadPrefix>(["gallery", "spotlight", "lab-announcement"]);
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -20,7 +19,7 @@ export async function POST(req: Request) {
   const file = form.get("file");
   const prefixRaw = form.get("prefix");
   const prefix: MemberImageUploadPrefix =
-    typeof prefixRaw === "string" && PREFIXES.has(prefixRaw as MemberImageUploadPrefix)
+    typeof prefixRaw === "string" && MEMBER_IMAGE_UPLOAD_PREFIX_SET.has(prefixRaw)
       ? (prefixRaw as MemberImageUploadPrefix)
       : "gallery";
 
@@ -30,7 +29,7 @@ export async function POST(req: Request) {
   if (file.size === 0) {
     return NextResponse.json({ error: "Empty file" }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > MEMBER_IMAGE_MAX_BYTES) {
     return NextResponse.json({ error: "Image must be 5 MB or smaller." }, { status: 400 });
   }
 

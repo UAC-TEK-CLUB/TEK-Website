@@ -1,4 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer";
+import { getAppUrl, getSmtpConfig, isProduction } from "@/lib/env";
 
 export type MailMessage = {
   to: string;
@@ -12,37 +13,26 @@ let cachedTransport: Transporter | null = null;
 function getTransport(): Transporter | null {
   if (cachedTransport) return cachedTransport;
 
-  const host = process.env.SMTP_HOST;
-  if (!host) return null;
-
-  const port = Number(process.env.SMTP_PORT ?? 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  const smtp = getSmtpConfig();
+  if (!smtp) return null;
 
   cachedTransport = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: user && pass ? { user, pass } : undefined,
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.port === 465,
+    auth: smtp.user && smtp.password ? { user: smtp.user, pass: smtp.password } : undefined,
   });
   return cachedTransport;
 }
 
-export function getAppUrl() {
-  return (
-    process.env.APP_URL ??
-    process.env.NEXTAUTH_URL ??
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
-}
+export { getAppUrl };
 
 export async function sendMail(message: MailMessage): Promise<void> {
   const transport = getTransport();
-  const from = process.env.EMAIL_FROM ?? "UAC TEK Club <noreply@tek.club>";
+  const smtp = getSmtpConfig();
+  const from = smtp?.from ?? "UAC TEK Club <noreply@tek.club>";
 
   if (!transport) {
-    // Dev fallback: nothing wired up yet, just log so the developer can see it.
-    // Officers can still hand off the link manually from the admin dialog.
     console.log("\n[email] (no SMTP configured — logging instead)");
     console.log(`  From:    ${from}`);
     console.log(`  To:      ${message.to}`);
@@ -59,12 +49,10 @@ export async function sendMail(message: MailMessage): Promise<void> {
       text: message.text,
       html: message.html,
     });
-    if (process.env.NODE_ENV === "development") {
+    if (!isProduction()) {
       console.log(`[email] sent to ${message.to} (subject: ${message.subject})`);
     }
   } catch (err) {
-    // Never let a flaky mail server break a status change. The DB update has
-    // already committed; surface the failure in logs so an officer can re-send.
     console.error("[email] sendMail failed:", err);
   }
 }

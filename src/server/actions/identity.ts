@@ -2,8 +2,14 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { firstZodFieldError } from "@/lib/actionResult";
+import {
+  adminAccessLevelForRole,
+  promoteMemberToOfficer,
+} from "@/lib/officerPromotion";
 import { prisma } from "@/lib/prisma";
 import { requireMember, requireSiteAdmin } from "@/lib/permissions";
+import { revalidateMembers } from "@/lib/revalidate";
 import {
   changePasswordSchema,
   completeRegistrationSchema,
@@ -20,14 +26,10 @@ export type CompleteRegistrationResult =
 export async function completeRegistration(raw: unknown): Promise<CompleteRegistrationResult> {
   const parsed = completeRegistrationSchema.safeParse(raw);
   if (!parsed.success) {
-    const fe = parsed.error.flatten().fieldErrors;
-    const msg =
-      fe.username?.[0] ??
-      fe.password?.[0] ??
-      fe.expectedGraduation?.[0] ??
-      fe.token?.[0] ??
-      "Invalid registration data.";
-    return { ok: false, error: msg };
+    return {
+      ok: false,
+      error: firstZodFieldError(completeRegistrationSchema, raw, "Invalid registration data."),
+    };
   }
   const data = parsed.data;
 
@@ -82,8 +84,8 @@ export async function completeRegistration(raw: unknown): Promise<CompleteRegist
       data: { accountSetupToken: null },
     });
 
+    revalidateMembers();
     revalidatePath("/admin/applicants");
-    revalidatePath("/admin/members");
 
     return { ok: true, username: member.username };
   } catch (err) {
@@ -123,29 +125,8 @@ export async function updateMemberProfile(raw: unknown) {
 export async function promoteToOfficer(raw: unknown) {
   await requireSiteAdmin();
   const data = promoteOfficerSchema.parse(raw);
-  const adminAccessLevel = data.officerRole === "LEADER" ? 2 : 5;
-
-  await prisma.$transaction(async (tx) => {
-    await tx.regularMember.deleteMany({ where: { memberId: data.memberId } });
-    await tx.clubOfficer.upsert({
-      where: { memberId: data.memberId },
-      create: {
-        memberId: data.memberId,
-        adminAccessLevel,
-        officerRole: data.officerRole,
-      },
-      update: {
-        adminAccessLevel,
-        officerRole: data.officerRole,
-      },
-    });
-    await tx.member.update({
-      where: { memberId: data.memberId },
-      data: { memberType: "OFFICER" },
-    });
-  });
-
-  revalidatePath("/admin/members");
+  await promoteMemberToOfficer(prisma, data.memberId, data.officerRole);
+  revalidateMembers();
 }
 
 export async function demoteToRegular(memberId: string, expectedGraduation: Date) {
@@ -165,7 +146,7 @@ export async function demoteToRegular(memberId: string, expectedGraduation: Date
     });
   });
 
-  revalidatePath("/admin/members");
+  revalidateMembers();
 }
 
 export async function setOfficerRole(raw: unknown) {
@@ -187,15 +168,15 @@ export async function setOfficerRole(raw: unknown) {
     }
   }
 
-  const adminAccessLevel = data.officerRole === "LEADER" ? 2 : 5;
-
   await prisma.clubOfficer.update({
     where: { memberId: data.memberId },
-    data: { officerRole: data.officerRole, adminAccessLevel },
+    data: {
+      officerRole: data.officerRole,
+      adminAccessLevel: adminAccessLevelForRole(data.officerRole),
+    },
   });
 
-  revalidatePath("/admin/members");
-  revalidatePath("/dashboard");
+  revalidateMembers();
 }
 
 export async function setMembershipStatus(raw: unknown) {
@@ -211,8 +192,7 @@ export async function setMembershipStatus(raw: unknown) {
     data: { membershipStatus: data.status },
   });
 
-  revalidatePath("/admin/members");
-  revalidatePath("/dashboard");
+  revalidateMembers();
 }
 
 export async function changeMyPassword(raw: unknown) {

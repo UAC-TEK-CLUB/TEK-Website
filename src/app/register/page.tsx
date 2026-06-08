@@ -1,16 +1,10 @@
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
-import { BrandLogo } from "@/components/layout/BrandLogo";
 import { prisma } from "@/lib/prisma";
 import { TokenRegisterForm } from "@/components/identity/TokenRegisterForm";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { AuthPageShell } from "@/components/layout/AuthPageShell";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function RegisterPage({
   searchParams,
@@ -33,31 +27,21 @@ export default async function RegisterPage({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">
-      <Card className="w-full max-w-lg">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center">
-            <BrandLogo className="h-14 w-auto max-h-14" />
-          </div>
-          <CardTitle className="text-2xl">Welcome to UAC TEK Club</CardTitle>
-          <CardDescription>
-            Your application is approved. Pick a username and password for this site (your
-            username is not your university ID).
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <TokenRegisterForm
-            token={token}
-            prefill={{
-              firstName: application.applicant.firstName,
-              lastName: application.applicant.lastName,
-              email: application.applicant.email,
-              universityId: application.applicant.universityId,
-            }}
-          />
-        </CardContent>
-      </Card>
-    </div>
+    <AuthPageShell
+      cardClassName="w-full max-w-lg"
+      title="Welcome to UAC TEK Club"
+      description="Your application is approved. Pick a username and password for this site (your username is not your university ID)."
+    >
+      <TokenRegisterForm
+        token={token}
+        prefill={{
+          firstName: application.applicant.firstName,
+          lastName: application.applicant.lastName,
+          email: application.applicant.email,
+          universityId: application.applicant.universityId,
+        }}
+      />
+    </AuthPageShell>
   );
 }
 

@@ -1,4 +1,6 @@
-export type MemberImageUploadPrefix = "gallery" | "spotlight" | "lab-announcement";
+import type { MemberImageUploadPrefix } from "@/lib/constants";
+
+export type { MemberImageUploadPrefix };
 
 export async function uploadMemberImageFile(
   file: File,

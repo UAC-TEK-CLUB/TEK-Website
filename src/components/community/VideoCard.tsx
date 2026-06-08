@@ -21,11 +21,15 @@ type Row = TutoringVideo & { uploader: Member };
 
 export function VideoCard({
   video,
+  canManage,
+  /** @deprecated Use canManage */
   isOfficer,
 }: {
   video: Row;
-  isOfficer: boolean;
+  canManage?: boolean;
+  isOfficer?: boolean;
 }) {
+  const allowManage = canManage ?? isOfficer ?? false;
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const parsed = parseVideoUrl(video.videoUrl);
@@ -70,7 +74,7 @@ export function VideoCard({
             <span>
               {video.uploader.firstName} {video.uploader.lastName} · {formatDate(video.createdAt)}
             </span>
-            {isOfficer && (
+            {allowManage && (
               <Button
                 size="icon"
                 variant="ghost"

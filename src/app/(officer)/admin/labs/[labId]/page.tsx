@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getLabRoster } from "@/server/actions/labs";
+import { getLabRosterContext } from "@/lib/labRoster";
 import { isPresident, requireSiteAdmin } from "@/lib/permissions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LabRosterTable } from "@/components/labs/LabRosterTable";
@@ -28,8 +28,8 @@ export default async function AdminLabDetail({
 
   const currentLeaderMemberIds = lab.leaderAssignments.map((a) => a.memberId);
 
-  const [roster, memberOptions] = await Promise.all([
-    getLabRoster(params.labId),
+  const [rosterContext, memberOptions] = await Promise.all([
+    getLabRosterContext(params.labId),
     prisma.member.findMany({
       where: {
         membershipStatus: "ACTIVE",
@@ -51,12 +51,8 @@ export default async function AdminLabDetail({
     }),
   ]);
 
-  const rosterLeaders = lab.leaderAssignments.map((a) => a.member);
-  const memberIdsWithApplication = new Set(roster.map((r) => r.member.memberId));
-  const leaderRowsWithoutApplication = rosterLeaders.filter(
-    (m) => !memberIdsWithApplication.has(m.memberId)
-  ).length;
-  const rosterTableRowCount = roster.length + leaderRowsWithoutApplication;
+  if (!rosterContext) notFound();
+  const { roster, rosterLeaders, rosterTableRowCount } = rosterContext;
 
   return (
     <div className="space-y-6">

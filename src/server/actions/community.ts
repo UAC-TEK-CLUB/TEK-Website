@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { OfficerRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireMember, requireSiteAdmin, isSiteAdmin } from "@/lib/permissions";
 import { canManageLabApplications, canViewLabAnnouncements } from "@/lib/labAccess";
+import { requireMember, requireSiteAdmin, isSiteAdmin } from "@/lib/permissions";
+import { revalidateBulletin } from "@/lib/revalidate";
+import type { SessionLike } from "@/lib/session";
 import {
   addVideoSchema,
   createPostSchema,
@@ -35,7 +36,7 @@ export async function listBulletinHighlights(limit = 5) {
  */
 export async function getLabAnnouncementsForLabPage(
   labId: string,
-  user: { memberId: string; memberType: string; officerRole?: OfficerRole | null } | null
+  user: SessionLike | null
 ) {
   if (!user || !(await canViewLabAnnouncements(user, labId))) return null;
   return prisma.bulletinPost.findMany({
@@ -65,9 +66,7 @@ export async function createPost(raw: unknown) {
         labId: null,
       },
     });
-    revalidatePath("/bulletin");
-    revalidatePath("/");
-    revalidatePath("/dashboard");
+    revalidateBulletin();
     return post;
   }
 
@@ -83,12 +82,8 @@ export async function createPost(raw: unknown) {
       labId,
     },
   });
-  revalidatePath("/bulletin");
-    revalidatePath("/");
-    revalidatePath("/dashboard");
-    revalidatePath(`/labs/${labId}`);
-    revalidatePath(`/labs/${labId}/console`);
-    return post;
+  revalidateBulletin(labId);
+  return post;
 }
 
 export async function updatePost(postId: string, raw: unknown) {
@@ -103,10 +98,7 @@ export async function updatePost(postId: string, raw: unknown) {
     where: { postId },
     data: { title: data.title, content: data.content },
   });
-  revalidatePath("/bulletin");
-  revalidatePath("/");
-  revalidatePath("/dashboard");
-  if (post.labId) revalidatePath(`/labs/${post.labId}`);
+  revalidateBulletin(post.labId);
 }
 
 export async function deletePost(postId: string) {
@@ -118,10 +110,7 @@ export async function deletePost(postId: string) {
   }
   const labId = post.labId;
   await prisma.bulletinPost.delete({ where: { postId } });
-  revalidatePath("/bulletin");
-  revalidatePath("/");
-  revalidatePath("/dashboard");
-  if (labId) revalidatePath(`/labs/${labId}`);
+  revalidateBulletin(labId);
 }
 
 export async function togglePinPost(postId: string) {
@@ -135,9 +124,7 @@ export async function togglePinPost(postId: string) {
     where: { postId },
     data: { pinned: !post.pinned },
   });
-  revalidatePath("/bulletin");
-  revalidatePath("/");
-  revalidatePath("/dashboard");
+  revalidateBulletin();
 }
 
 // ----- Gallery -----

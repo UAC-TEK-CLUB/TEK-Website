@@ -1,15 +1,9 @@
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
-import { BrandLogo } from "@/components/layout/BrandLogo";
 import { SetNewPasswordForm } from "@/components/identity/SetNewPasswordForm";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { AuthPageShell } from "@/components/layout/AuthPageShell";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SetNewPasswordPage({
   searchParams,
@@ -40,21 +34,11 @@ export default function SetNewPasswordPage({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-12">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center">
-            <BrandLogo className="h-14 w-auto max-h-14" />
-          </div>
-          <CardTitle className="text-2xl">Set a new password</CardTitle>
-          <CardDescription>
-            This page is valid for a short time after you verify your email code.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SetNewPasswordForm token={token} />
-        </CardContent>
-      </Card>
-    </div>
+    <AuthPageShell
+      title="Set a new password"
+      description="This page is valid for a short time after you verify your email code."
+    >
+      <SetNewPasswordForm token={token} />
+    </AuthPageShell>
   );
 }

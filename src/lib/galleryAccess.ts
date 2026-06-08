@@ -1,12 +1,6 @@
-import type { OfficerRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isSiteAdmin } from "@/lib/permissions";
-
-type SessionLike = {
-  memberId: string;
-  memberType: string;
-  officerRole?: OfficerRole | null;
-};
+import type { SessionLike } from "@/lib/session";
 
 /** Site admins or anyone assigned as a lab’s leader — may delete any gallery photo. */
 export async function canModerateGalleryDeletes(user: SessionLike | null): Promise<boolean> {

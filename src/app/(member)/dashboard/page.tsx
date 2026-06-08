@@ -18,6 +18,7 @@ import { MembershipStatusBadge } from "@/components/identity/MembershipStatusBad
 import { MeetingForm } from "@/components/meetings/MeetingForm";
 import { MemberAnnouncementsSection } from "@/components/community/MemberAnnouncementsSection";
 import { listBulletinHighlights } from "@/server/actions/community";
+import { routes } from "@/lib/routes";
 import { fullName, formatDate } from "@/lib/utils";
 
 export default async function DashboardPage() {
@@ -33,7 +34,7 @@ export default async function DashboardPage() {
   const siteAdmin = isSiteAdmin(user);
   const executive = isExecutive(user);
   const president = isPresident(user);
-  const meetingsHref = siteAdmin ? "/admin/meetings" : "/meetings";
+  const meetingsHref = routes.meetingsList(siteAdmin);
   const meetingDetailPrefix = meetingsHref;
 
   const [

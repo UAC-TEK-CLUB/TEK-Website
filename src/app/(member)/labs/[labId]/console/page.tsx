@@ -4,6 +4,8 @@ import { ExternalLink } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireMember } from "@/lib/permissions";
 import { canManageLabApplications } from "@/lib/labAccess";
+import { computeLabRosterTableCount } from "@/lib/labRoster";
+import { routes } from "@/lib/routes";
 import { getLabRoster } from "@/server/actions/labs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,11 +48,7 @@ export default async function LabConsolePage({
 
   const roster = await getLabRoster(params.labId);
   const rosterLeaders = lab.leaderAssignments.map((a) => a.member);
-  const memberIdsWithApplication = new Set(roster.map((r) => r.member.memberId));
-  const leaderRowsWithoutApplication = rosterLeaders.filter(
-    (m) => !memberIdsWithApplication.has(m.memberId)
-  ).length;
-  const rosterTableRowCount = roster.length + leaderRowsWithoutApplication;
+  const rosterTableRowCount = computeLabRosterTableCount(roster, rosterLeaders);
 
   return (
     <div className="space-y-8">
@@ -66,7 +64,7 @@ export default async function LabConsolePage({
           </p>
         </div>
         <Button asChild variant="outline" size="sm" className="shrink-0 gap-2">
-          <Link href={`/labs/${lab.labId}`} target="_blank" rel="noopener noreferrer">
+          <Link href={routes.lab(lab.labId)} target="_blank" rel="noopener noreferrer">
             Public lab page
             <ExternalLink className="h-3.5 w-3.5 opacity-70" />
           </Link>

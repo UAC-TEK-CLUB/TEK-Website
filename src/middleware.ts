@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-
-const VISITOR_COOKIE = "tek_visitor_id";
+import { VISITOR_COOKIE } from "@/lib/constants";
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -13,22 +12,31 @@ const PROTECTED_PREFIXES = [
   "/admin",
 ];
 
-const OFFICER_PREFIX = "/admin";
+/** Lab leader console — page-level guards also apply; middleware ensures login. */
+const LAB_CONSOLE_PATH = /^\/labs\/[^/]+\/console/;
+
+function getSessionCookie(req: NextRequest) {
+  return (
+    req.cookies.get("authjs.session-token") ??
+    req.cookies.get("__Secure-authjs.session-token") ??
+    req.cookies.get("next-auth.session-token")
+  );
+}
+
+function redirectToLogin(req: NextRequest, pathname: string) {
+  const loginUrl = new URL("/login", req.url);
+  loginUrl.searchParams.set("callbackUrl", pathname);
+  return NextResponse.redirect(loginUrl);
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const requiresAuth = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
-  if (requiresAuth) {
-    const sessionCookie =
-      req.cookies.get("authjs.session-token") ??
-      req.cookies.get("__Secure-authjs.session-token") ??
-      req.cookies.get("next-auth.session-token");
-    if (!sessionCookie) {
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
+  const requiresAuth =
+    PROTECTED_PREFIXES.some((p) => pathname.startsWith(p)) || LAB_CONSOLE_PATH.test(pathname);
+
+  if (requiresAuth && !getSessionCookie(req)) {
+    return redirectToLogin(req, pathname);
   }
 
   const res = NextResponse.next();
@@ -42,17 +50,6 @@ export async function middleware(req: NextRequest) {
         sameSite: "lax",
         maxAge: 60 * 60 * 24 * 90,
       });
-    }
-  }
-
-  if (pathname.startsWith(OFFICER_PREFIX)) {
-    const sessionCookie =
-      req.cookies.get("authjs.session-token") ??
-      req.cookies.get("__Secure-authjs.session-token");
-    if (!sessionCookie) {
-      const loginUrl = new URL("/login", req.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
     }
   }
 

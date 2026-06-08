@@ -1,9 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireMember } from "@/lib/permissions";
 import { canManageLabApplications } from "@/lib/labAccess";
+import { requireMember } from "@/lib/permissions";
+import { revalidateSpotlight } from "@/lib/revalidate";
 import {
   deleteLeaderProjectSchema,
   upsertLeaderProjectSchema,
@@ -53,10 +53,7 @@ export async function upsertLabSpotlightProject(raw: unknown) {
     },
   });
 
-  revalidatePath("/");
-  revalidatePath(`/labs/${data.labId}`);
-  revalidatePath(`/labs/${data.labId}/console`);
-  revalidatePath("/admin/projects");
+  revalidateSpotlight(data.labId);
 }
 
 export async function deleteLabSpotlightProject(raw: unknown) {
@@ -76,10 +73,7 @@ export async function deleteLabSpotlightProject(raw: unknown) {
     where: { projectId: data.projectId },
   });
 
-  revalidatePath("/");
-  revalidatePath(`/labs/${project.labId}`);
-  revalidatePath(`/labs/${project.labId}/console`);
-  revalidatePath("/admin/projects");
+  revalidateSpotlight(project.labId);
 }
 
 export async function listCurrentProjects(limit = 6) {

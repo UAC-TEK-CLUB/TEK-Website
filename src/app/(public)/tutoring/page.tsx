@@ -36,7 +36,7 @@ export default async function TutoringVideosPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {videos.map((v) => (
-            <VideoCard key={v.videoId} video={v} isOfficer={canManageVideos} />
+            <VideoCard key={v.videoId} video={v} canManage={canManageVideos} />
           ))}
         </div>
       )}

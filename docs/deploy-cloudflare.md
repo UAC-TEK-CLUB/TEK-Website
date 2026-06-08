@@ -145,6 +145,7 @@ You still need to expose `DATABASE_URL` etc. to the Worker via `wrangler secret`
 | `npm run cf:build` | Full Workers bundle + `verify-cf-build` gate |
 | `npm run cf:verify` | Re-check last `cf:build` artifacts |
 | `npm run cf:smoke` | HTTP smoke tests against `CF_SMOKE_URL` (defaults to `wrangler.jsonc`) |
+| `npm run cf:smoke:auth` | Neon sign-up / register flow smoke tests |
 | `npm run cf:preview` | Build + local Worker runtime |
 | `npm run cf:deploy` | Build + deploy + smoke |
 | `npm run cf:typegen` | `cloudflare-env.d.ts` for bindings |
@@ -167,3 +168,67 @@ docker run -p 3000:3000 --env-file .env.production tek-website
 ```
 
 Point [**Cloudflare Tunnel**](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) at `localhost:3000` and assign a `*.trycloudflare.com` or custom hostname.
+
+---
+
+## 11. Custom domain & email
+
+The interim `*.workers.dev` URL is fine for testing. Before sharing the site with members, attach a **custom domain** and align every URL the app uses.
+
+### Why the URL must match
+
+These must all use the **same** canonical public URL (e.g. `https://www.uactekclub.com`):
+
+| Setting | Where |
+|---------|--------|
+| `NEXTAUTH_URL` | `wrangler.jsonc` `[vars]` and/or Worker secrets |
+| `APP_URL` | `wrangler.jsonc` `[vars]` and/or Worker secrets |
+| Email links | Built from `APP_URL` in `src/lib/mail/templates.ts` |
+
+If members visit `www.uactekclub.com` but `NEXTAUTH_URL` still points at `*.workers.dev`, Auth.js cookies, redirects, and links in approval / password-reset emails can break.
+
+### Attach the domain
+
+1. Cloudflare dashboard → **Workers & Pages** → Worker **`uactek`** → **Settings** → **Domains & Routes** → **Add** → **Custom domain**.
+2. Add `www.uactekclub.com` (and apex `uactekclub.com` if you want both).
+3. Update `wrangler.jsonc`:
+   ```jsonc
+   "NEXTAUTH_URL": "https://www.uactekclub.com",
+   "APP_URL": "https://www.uactekclub.com"
+   ```
+4. If you set `NEXTAUTH_URL` / `APP_URL` as Worker secrets in the dashboard, update those too (secrets override `[vars]`).
+5. Redeploy:
+   ```bash
+   npm run cf:deploy
+   ```
+6. Update the **Live site** link in `README.md`.
+7. Optionally remove or stop advertising the `*.workers.dev` route (Workers & Pages → Triggers).
+
+`account_id` in `wrangler.jsonc` is account-specific but not secret — it is required for CLI deploys.
+
+### Transactional email on your domain
+
+Until SMTP is configured, emails are logged to the Worker console. Officers can still copy `/register?token=...` from the admin approval dialog.
+
+1. Choose a provider and **verify your sending domain** (DNS records at your registrar or Cloudflare DNS).
+   - **Resend** (recommended): see `.env.example` for `SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, API key as `SMTP_PASSWORD`.
+2. Set Worker secrets:
+   ```bash
+   wrangler secret put SMTP_HOST
+   wrangler secret put SMTP_PORT
+   wrangler secret put SMTP_USER
+   wrangler secret put SMTP_PASSWORD
+   wrangler secret put EMAIL_FROM
+   ```
+   `EMAIL_FROM` must use an address on the verified domain, e.g. `UAC TEK Club <noreply@uactekclub.com>`.
+3. Redeploy is not required for secret-only changes, but send a test application approval or password-reset email to confirm links use the new `APP_URL`.
+
+### Checklist
+
+- [ ] Custom domain attached in Cloudflare
+- [ ] `NEXTAUTH_URL` and `APP_URL` updated in `wrangler.jsonc` (and secrets if used)
+- [ ] `npm run cf:deploy` completed
+- [ ] Login and redirect work on the custom domain
+- [ ] Sending domain verified with mail provider
+- [ ] `SMTP_*` and `EMAIL_FROM` set on the Worker
+- [ ] Test email links open the custom domain (not `*.workers.dev`)

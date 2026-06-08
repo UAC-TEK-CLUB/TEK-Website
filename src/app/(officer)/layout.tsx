@@ -1,4 +1,5 @@
-import { MemberSidebar } from "@/components/layout/MemberSidebar";
+/** Route group `(officer)` serves URLs under `/admin/*` (not `/officer`). */
+import { MemberShell } from "@/components/layout/MemberShell";
 import { isSiteAdmin, requireExecutive } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
@@ -10,15 +11,12 @@ export default async function OfficerLayout({ children }: { children: React.Reac
     orderBy: { labName: "asc" },
   });
   return (
-    <div className="flex min-h-screen flex-col">
-      <div className="container flex flex-1 gap-6 px-0 py-0 md:px-6">
-        <MemberSidebar
-          isSiteAdmin={isSiteAdmin(user)}
-          officerRole={user.officerRole ?? null}
-          ledLabs={ledLabs}
-        />
-        <main className="flex-1 px-4 py-6 md:px-0">{children}</main>
-      </div>
-    </div>
+    <MemberShell
+      isSiteAdmin={isSiteAdmin(user)}
+      officerRole={user.officerRole ?? null}
+      ledLabs={ledLabs}
+    >
+      {children}
+    </MemberShell>
   );
 }

@@ -2,10 +2,10 @@
  * Set a member's login password. Uses DATABASE_URL from the environment.
  *
  * Local:
- *   npx tsx scripts/set-member-password.ts kojh0518 'Qwer2345!'
+ *   npx tsx scripts/set-member-password.ts your_username 'YourNewPassword1!'
  *
  * Production (Neon) — paste your Neon URL on the SAME line:
- *   DATABASE_URL="postgresql://..." npx tsx scripts/set-member-password.ts kojh0518 'Qwer2345!'
+ *   DATABASE_URL="postgresql://..." npx tsx scripts/set-member-password.ts your_username 'YourNewPassword1!'
  */
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";

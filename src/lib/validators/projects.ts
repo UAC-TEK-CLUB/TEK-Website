@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { entityId, imageUrlOrPath } from "@/lib/validators/common";
 
 function trimToNull(s: string): string | null {
   const t = s.trim();
@@ -6,16 +7,10 @@ function trimToNull(s: string): string | null {
 }
 
 export const upsertLeaderProjectSchema = z.object({
-  labId: z.string().min(1),
+  labId: entityId,
   title: z.string().min(2).max(120),
   description: z.string().min(20).max(3000),
-  photoUrl: z
-    .string()
-    .min(1)
-    .refine(
-      (s) => /^https?:\/\//i.test(s) || s.startsWith("/"),
-      "Must be an http(s) URL or a path starting with /"
-    ),
+  photoUrl: imageUrlOrPath,
   websiteUrl: z
     .string()
     .max(2048)
@@ -24,5 +19,5 @@ export const upsertLeaderProjectSchema = z.object({
 });
 
 export const deleteLeaderProjectSchema = z.object({
-  projectId: z.string().min(1),
+  projectId: entityId,
 });

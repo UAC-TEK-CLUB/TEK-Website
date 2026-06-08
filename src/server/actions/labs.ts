@@ -1,9 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { OfficerRole, Prisma } from "@prisma/client";
+import type { OfficerRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { ensureMemberReadyAsLabLeader } from "@/lib/officerPromotion";
 import { requireMember, requirePresident, requireSiteAdmin } from "@/lib/permissions";
+import { revalidateLab, revalidateLabsIndex } from "@/lib/revalidate";
+import { routes } from "@/lib/routes";
 import { canManageLabApplications } from "@/lib/labAccess";
 import {
   createLabSchema,
@@ -17,52 +20,8 @@ export async function createLab(raw: unknown) {
   await requireSiteAdmin();
   const data = createLabSchema.parse(raw);
   const lab = await prisma.lab.create({ data });
-  revalidatePath("/labs");
-  revalidatePath("/admin/labs");
+  revalidateLabsIndex();
   return lab;
-}
-
-async function ensureMemberReadyAsLabLeader(tx: Prisma.TransactionClient, leaderId: string) {
-  const member = await tx.member.findUnique({
-    where: { memberId: leaderId },
-    include: { officerProfile: true },
-  });
-  if (!member) throw new Error("Member not found.");
-  if (member.membershipStatus !== "ACTIVE") {
-    throw new Error("Only active members can be assigned as lab leaders.");
-  }
-  const role = member.officerProfile?.officerRole;
-  if (role === "SUPERVISOR") {
-    throw new Error("Supervisor cannot be assigned as a lab leader.");
-  }
-
-  if (member.memberType === "REGULAR") {
-    await tx.regularMember.deleteMany({ where: { memberId: leaderId } });
-    await tx.clubOfficer.upsert({
-      where: { memberId: leaderId },
-      create: {
-        memberId: leaderId,
-        adminAccessLevel: 2,
-        officerRole: "LEADER",
-      },
-      update: {
-        adminAccessLevel: 2,
-        officerRole: "LEADER",
-      },
-    });
-    await tx.member.update({
-      where: { memberId: leaderId },
-      data: { memberType: "OFFICER" },
-    });
-  } else if (member.memberType === "OFFICER" && !member.officerProfile) {
-    await tx.clubOfficer.create({
-      data: {
-        memberId: leaderId,
-        adminAccessLevel: 2,
-        officerRole: "LEADER",
-      },
-    });
-  }
 }
 
 /** Replace all lab leader assignments (0–2 people). President only. */
@@ -80,12 +39,9 @@ export async function setLabLeaders(raw: unknown) {
     }
   });
 
-  revalidatePath("/admin/labs");
-  revalidatePath(`/admin/labs/${data.labId}`);
-  revalidatePath(`/labs/${data.labId}/console`);
-  revalidatePath(`/labs/${data.labId}`);
-  revalidatePath("/admin/members");
-  revalidatePath("/labs");
+  revalidateLab(data.labId);
+  revalidatePath(routes.adminMembers);
+  revalidateLabsIndex();
 }
 
 export async function applyToLab(labId: string) {
@@ -98,8 +54,8 @@ export async function applyToLab(labId: string) {
     update: { status: "PENDING" },
     create: { memberId: me.memberId, labId, status: "PENDING" },
   });
-  revalidatePath("/labs");
-  revalidatePath(`/labs/${labId}`);
+  revalidatePath(routes.labs);
+  revalidatePath(routes.lab(labId));
   return application;
 }
 
@@ -121,10 +77,7 @@ export async function decideLabApplication(raw: unknown) {
     where: { labAppId: data.labAppId },
     data: { status: data.decision },
   });
-  revalidatePath("/admin/labs");
-  revalidatePath(`/admin/labs/${app.labId}`);
-  revalidatePath(`/labs/${app.labId}/console`);
-  revalidatePath(`/labs/${app.labId}`);
+  revalidateLab(app.labId);
 }
 
 export async function submitLabProposal(raw: unknown) {
@@ -138,8 +91,8 @@ export async function submitLabProposal(raw: unknown) {
       objective: data.objective,
     },
   });
-  revalidatePath("/labs");
-  revalidatePath("/admin/proposals");
+  revalidatePath(routes.labs);
+  revalidatePath(routes.adminProposals);
   return proposal;
 }
 
@@ -157,7 +110,7 @@ export async function decideLabProposal(raw: unknown) {
       where: { proposalId: data.proposalId },
       data: { status: "REJECTED", reviewedById: officer.memberId },
     });
-    revalidatePath("/admin/proposals");
+    revalidatePath(routes.adminProposals);
     return;
   }
 
@@ -175,8 +128,8 @@ export async function decideLabProposal(raw: unknown) {
     });
   });
 
-  revalidatePath("/admin/proposals");
-  revalidatePath("/labs");
+  revalidatePath(routes.adminProposals);
+  revalidatePath(routes.labs);
 }
 
 export async function listLabs() {

@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { applicationDecision, emailField, entityId, personName } from "@/lib/validators/common";
 
 export const submitApplicationSchema = z.object({
   universityId: z.string().min(2).max(32),
-  firstName: z.string().min(1).max(60),
-  lastName: z.string().min(1).max(60),
-  email: z.string().email(),
+  firstName: personName,
+  lastName: personName,
+  email: emailField,
   major: z.string().min(1).max(120),
   codingExperience: z
     .string()
@@ -15,10 +16,10 @@ export const submitApplicationSchema = z.object({
 export type SubmitApplicationInput = z.infer<typeof submitApplicationSchema>;
 
 export const decideApplicationSchema = z.object({
-  clubAppId: z.string().min(1),
-  decision: z.enum(["APPROVED", "REJECTED", "WITHDRAWN"]),
+  clubAppId: entityId,
+  decision: applicationDecision,
 });
 
 export const resendAccountSetupSchema = z.object({
-  clubAppId: z.string().min(1),
+  clubAppId: entityId,
 });

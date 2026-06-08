@@ -1,3 +1,7 @@
+/**
+ * Access control for member vs site-admin (President + Supervisor) vs President-only routes.
+ * Prefer `requireSiteAdmin` / `isSiteAdmin` — `requireExecutive` / `isExecutive` are legacy aliases.
+ */
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import type { OfficerRole } from "@prisma/client";
@@ -39,6 +43,7 @@ export async function requireOfficer(minLevel = 1) {
   return session.user;
 }
 
+/** @deprecated Use requireSiteAdmin */
 export async function requireExecutive() {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -77,6 +82,7 @@ export function isOfficer(
   return !!user && user.memberType === "OFFICER" && (user.adminAccessLevel ?? 0) >= 1;
 }
 
+/** @deprecated Use isSiteAdmin */
 export function isExecutive(
   user: { memberType?: string; officerRole?: OfficerRole | null } | null
 ) {

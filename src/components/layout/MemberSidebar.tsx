@@ -1,5 +1,6 @@
 import type { OfficerRole } from "@prisma/client";
 import Link from "next/link";
+import { routes } from "@/lib/routes";
 import {
   CalendarDays,
   Crown,
@@ -57,7 +58,7 @@ export function MemberSidebar({
   officerRole: OfficerRole | null;
   ledLabs: LedLab[];
 }) {
-  const meetingsHref = isSiteAdmin ? "/admin/meetings" : "/meetings";
+  const meetingsHref = routes.meetingsList(isSiteAdmin);
 
   return (
     <aside className="hidden w-56 shrink-0 border-r bg-muted/20 md:block">
