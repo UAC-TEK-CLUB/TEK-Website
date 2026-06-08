@@ -14,11 +14,7 @@ type Thread = {
 
 export function ChatList({ threads }: { threads: Thread[] }) {
   if (threads.length === 0) {
-    return (
-      <p className="rounded-md border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-        No conversations yet.
-      </p>
-    );
+    return null;
   }
 
   return (

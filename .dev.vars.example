@@ -2,3 +2,19 @@
 # https://developers.cloudflare.com/workers/testing/local-development/
 
 NEXTJS_ENV=development
+
+# Required for DB + auth in preview (use Neon dev branch or local Postgres URL)
+DATABASE_URL=postgresql://USER:PASSWORD@ep-xxxx.neon.tech/neondb?sslmode=require
+AUTH_SECRET=replace_with_openssl_rand_base64_32
+
+# Match wrangler.jsonc [vars] for callback URLs
+NEXTAUTH_URL=http://localhost:8787
+APP_URL=http://localhost:8787
+AUTH_TRUST_HOST=true
+
+# Club Discord invite (shown on /messages)
+DISCORD_INVITE_URL=https://discord.com/invite/your-invite-code
+
+# Optional: full login smoke after deploy
+# CF_SMOKE_USERNAME=your_test_user
+# CF_SMOKE_PASSWORD=your_test_password

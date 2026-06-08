@@ -1,4 +1,5 @@
 import { requireMember } from "@/lib/permissions";
+import { getDiscordInviteUrl } from "@/lib/discord";
 import { listChatThreads } from "@/server/actions/community";
 import { ChatList } from "@/components/community/ChatList";
 import { DiscordInviteBanner } from "@/components/community/DiscordInviteBanner";
@@ -6,7 +7,7 @@ import { DiscordInviteBanner } from "@/components/community/DiscordInviteBanner"
 export default async function MessagesPage() {
   const me = await requireMember();
   const threads = await listChatThreads(me.memberId);
-  const discordInviteUrl = process.env.DISCORD_INVITE_URL;
+  const discordInviteUrl = getDiscordInviteUrl() ?? undefined;
   return (
     <div className="space-y-6">
       <div>

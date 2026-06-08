@@ -64,22 +64,39 @@ Non-secret vars can go in `wrangler.jsonc` under `[vars]` or in the dashboard.
 ## 4. Build and deploy (CLI)
 
 ```bash
-npm run cf:build     # next build + OpenNext bundle → .open-next/
-npm run cf:deploy    # uploads Worker (requires wrangler login)
+npm run cf:build     # prisma generate + WASM patch + OpenNext bundle + verify
+npm run cf:deploy    # cf:build + wrangler deploy + smoke tests
+npm run cf:smoke     # re-run smoke tests against production (no redeploy)
 ```
+
+`cf:build` **fails fast** if Prisma WASM artifacts are missing (`npm run cf:verify` checks the last build).
+
+After deploy, `cf:smoke` checks homepage, login page, WASM asset, and (when `CF_SMOKE_USERNAME` / `CF_SMOKE_PASSWORD` are set) login → dashboard → home → bulletin.
 
 Rename the Worker in `wrangler.jsonc` (`name`, and `services[0].service`) if you change the Worker name.
 
+### Prisma WASM on Workers (required)
+
+With `engineType = "client"`, Prisma loads `query_compiler_bg.wasm`. Workers have no `fs.readFileSync`, so the repo runs:
+
+| Step | Script |
+|------|--------|
+| After `prisma generate` | `scripts/patch-prisma-client-wasm.mjs` — fetch fallback for Workers |
+| Dev / preview | `scripts/sync-prisma-wasm-public.mjs` — copies WASM to `public/` |
+| After OpenNext build | `scripts/copy-prisma-wasm.mjs` — copies WASM into `.open-next/assets` |
+| Gate before deploy | `scripts/verify-cf-build.mjs` — aborts if WASM or patch is missing |
+
+Do **not** skip these steps or run bare `opennextjs-cloudflare build` without `npm run cf:build`.
+
 ---
 
-## 5. Prisma + Workers
+## 5. Prisma + Workers (runtime)
 
-Prisma’s **classic** Node engine can be finicky on **Workers**. If you see DB or engine errors at runtime:
+- Use a **Neon** (or other serverless) `DATABASE_URL` with `sslmode=require` in Wrangler secrets.
+- `src/lib/prisma.ts` uses `@prisma/adapter-neon` with `maxUses: 1` and per-request `cache()` (required on Workers).
+- If login returns 500 and logs show `fs.readFileSync` or `query_compiler_bg.wasm`, re-run `npm run cf:build` and deploy again.
 
-1. Prefer a **serverless** driver URL (Neon “serverless”, Supabase pooler, etc.).
-2. Follow Prisma’s guides: [Neon serverless](https://www.prisma.io/docs/orm/overview/databases/neon) or [Prisma Accelerate](https://www.prisma.io/docs/accelerate).
-
-Until that’s verified, you can ship the same codebase with **Docker** + any host, or put **Cloudflare Tunnel** in front of your container (see root `Dockerfile`).
+Alternative if Workers are blocked by policy: **Docker** + **Cloudflare Tunnel** (see §10).
 
 ---
 
@@ -109,9 +126,8 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
-      - run: npx prisma generate
       - run: npm run cf:build
-      - run: npx wrangler deploy
+      - run: npx opennextjs-cloudflare deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -125,16 +141,19 @@ You still need to expose `DATABASE_URL` etc. to the Worker via `wrangler secret`
 
 | Script | Purpose |
 |--------|---------|
-| `npm run cf:build` | Production OpenNext bundle |
+| `npm run db:generate` | `prisma generate` + WASM patch + `public/` copy |
+| `npm run cf:build` | Full Workers bundle + `verify-cf-build` gate |
+| `npm run cf:verify` | Re-check last `cf:build` artifacts |
+| `npm run cf:smoke` | HTTP smoke tests against `CF_SMOKE_URL` (defaults to `wrangler.jsonc`) |
 | `npm run cf:preview` | Build + local Worker runtime |
-| `npm run cf:deploy` | Build + deploy |
+| `npm run cf:deploy` | Build + deploy + smoke |
 | `npm run cf:typegen` | `cloudflare-env.d.ts` for bindings |
 
 ---
 
 ## 9. Static asset caching
 
-`public/_headers` sets long-lived cache for `/_next/static/*`. Adjust there if needed.
+`public/_headers` sets long-lived cache for `/_next/static/*` and `query_compiler_bg.wasm`. Adjust there if needed.
 
 ---
 

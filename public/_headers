@@ -1,2 +1,6 @@
 /_next/static/*
   Cache-Control: public,max-age=31536000,immutable
+
+/query_compiler_bg.wasm
+  Content-Type: application/wasm
+  Cache-Control: public,max-age=31536000,immutable

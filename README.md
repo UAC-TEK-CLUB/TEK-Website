@@ -4,6 +4,12 @@ Next.js 14 + TypeScript + Prisma + PostgreSQL portal for the UAC TEK Club —
 the University of Utah Asia Campus coding & analytics society.
 Styled with Tailwind CSS, shadcn/ui, and Lucide React.
 
+## Live site
+
+**https://uactek.kojh0918.workers.dev**
+
+Hosted on Cloudflare Workers (see `wrangler.jsonc`). When a custom domain is added, update this link and `NEXTAUTH_URL` / `APP_URL` in `wrangler.jsonc`.
+
 ## Stack
 
 - **Framework:** Next.js 14 (App Router, Server Actions)
@@ -106,8 +112,10 @@ TEK-Website/
 | `npm run db:seed` | Seed bootstrap officer + sample labs/meeting |
 | `npm run db:studio` | Open Prisma Studio |
 | `npm run lint` | ESLint |
-| `npm run cf:build` | OpenNext bundle for **Cloudflare Workers** |
-| `npm run cf:deploy` | Build + `wrangler deploy` (see `docs/deploy-cloudflare.md`) |
+| `npm run cf:build` | Prisma WASM patch + OpenNext bundle + verify gate |
+| `npm run cf:verify` | Re-check last `cf:build` (WASM + patch present) |
+| `npm run cf:smoke` | Post-deploy HTTP smoke tests (login optional via env) |
+| `npm run cf:deploy` | `cf:build` + deploy + smoke (see `docs/deploy-cloudflare.md`) |
 
 ## Deploying to Cloudflare (Workers)
 

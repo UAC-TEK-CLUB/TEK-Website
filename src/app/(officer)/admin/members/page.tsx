@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RoleBadge } from "@/components/identity/RoleBadge";
-import { MembershipStatusBadge } from "@/components/identity/MembershipStatusBadge";
+import { MembershipStatusPicker } from "@/components/identity/MembershipStatusPicker";
 import { OfficerRolePicker } from "@/components/identity/OfficerRolePicker";
 import { fullName } from "@/lib/utils";
 export default async function AdminMembersPage() {
@@ -34,6 +34,8 @@ export default async function AdminMembersPage() {
           use <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">npx prisma db seed</code>{" "}
           to create or refresh that account (see <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">.env.example</code>
           ). President and lab leader roles can be reassigned from the dropdown in this table.
+          Membership status (Active, Inactive, Alumni, Suspended) can be changed from the Status column.
+          Suspended blocks sign-in; Inactive updates the roster only.
         </p>
       </div>
 
@@ -78,7 +80,11 @@ export default async function AdminMembersPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <MembershipStatusBadge status={m.membershipStatus} />
+                    <MembershipStatusPicker
+                      memberId={m.memberId}
+                      current={m.membershipStatus}
+                      disabled={!canEditRoles || m.memberId === me.memberId}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

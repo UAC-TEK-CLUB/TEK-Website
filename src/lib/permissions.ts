@@ -3,9 +3,13 @@ import { auth } from "@/lib/auth";
 import type { OfficerRole } from "@prisma/client";
 
 export async function requireMember() {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  return session.user;
+  try {
+    const session = await auth();
+    if (!session?.user) redirect("/login");
+    return session.user;
+  } catch {
+    redirect("/login");
+  }
 }
 
 /** Site administrators (President = primary admin; Supervisor = oversight/support admin). */

@@ -7,14 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:generate": "prisma generate",
+    "db:generate": "prisma generate && node scripts/patch-prisma-client-wasm.mjs && node scripts/sync-prisma-wasm-public.mjs",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "cf:build": "opennextjs-cloudflare build && node scripts/copy-prisma-wasm.mjs",
-    "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "cf:deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf:build": "npm run db:generate && DATABASE_URL=postgresql://build:build@ep-build-placeholder.neon.tech/neondb opennextjs-cloudflare build && node scripts/copy-prisma-wasm.mjs && node scripts/verify-cf-build.mjs",
+    "cf:verify": "node scripts/verify-cf-build.mjs",
+    "cf:smoke": "node scripts/smoke-cf-deploy.mjs",
+    "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
+    "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy && npm run cf:smoke",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "prisma": {
@@ -23,6 +25,7 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
     "@aws-sdk/client-s3": "^3.1045.0",
+    "@neondatabase/serverless": "^1.0.0",
     "@opennextjs/cloudflare": "^1.14.10",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/adapter-pg": "^7.8.0",

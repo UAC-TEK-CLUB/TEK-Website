@@ -190,8 +190,12 @@ export async function setOfficerRole(raw: unknown) {
 }
 
 export async function setMembershipStatus(raw: unknown) {
-  await requireSiteAdmin();
+  const me = await requireSiteAdmin();
   const data = setMembershipStatusSchema.parse(raw);
+
+  if (data.memberId === me.memberId) {
+    throw new Error("You cannot change your own membership status.");
+  }
 
   await prisma.member.update({
     where: { memberId: data.memberId },
@@ -199,6 +203,7 @@ export async function setMembershipStatus(raw: unknown) {
   });
 
   revalidatePath("/admin/members");
+  revalidatePath("/dashboard");
 }
 
 export async function changeMyPassword(raw: unknown) {
