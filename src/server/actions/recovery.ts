@@ -201,26 +201,25 @@ export async function confirmPasswordReset(raw: unknown) {
   const token = randomBytes(32).toString("hex");
   const expiresAt = passwordTicketExpiresAt();
 
-  await prisma.$transaction(async (tx) => {
-    await tx.accountRecoveryCode.update({
-      where: { accountRecoveryCodeId: challenge.accountRecoveryCodeId },
-      data: { usedAt: new Date() },
-    });
-    await tx.passwordChangeTicket.updateMany({
-      where: { memberId: member.memberId, usedAt: null },
-      data: { usedAt: new Date() },
-    });
-    await tx.member.update({
-      where: { memberId: member.memberId },
-      data: { passwordHash: tempHash },
-    });
-    await tx.passwordChangeTicket.create({
-      data: {
-        memberId: member.memberId,
-        token,
-        expiresAt,
-      },
-    });
+  // Sequential writes — Neon HTTP on Workers does not support interactive $transaction.
+  await prisma.accountRecoveryCode.update({
+    where: { accountRecoveryCodeId: challenge.accountRecoveryCodeId },
+    data: { usedAt: new Date() },
+  });
+  await prisma.passwordChangeTicket.updateMany({
+    where: { memberId: member.memberId, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+  await prisma.member.update({
+    where: { memberId: member.memberId },
+    data: { passwordHash: tempHash },
+  });
+  await prisma.passwordChangeTicket.create({
+    data: {
+      memberId: member.memberId,
+      token,
+      expiresAt,
+    },
   });
 
   revalidatePath("/admin/members");

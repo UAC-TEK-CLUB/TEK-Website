@@ -13,7 +13,11 @@ import {
   updateProfileSchema,
 } from "@/lib/validators/identity";
 
-export async function completeRegistration(raw: unknown) {
+export type CompleteRegistrationResult =
+  | { ok: true; username: string }
+  | { ok: false; error: string };
+
+export async function completeRegistration(raw: unknown): Promise<CompleteRegistrationResult> {
   const parsed = completeRegistrationSchema.safeParse(raw);
   if (!parsed.success) {
     const fe = parsed.error.flatten().fieldErrors;
@@ -23,7 +27,7 @@ export async function completeRegistration(raw: unknown) {
       fe.expectedGraduation?.[0] ??
       fe.token?.[0] ??
       "Invalid registration data.";
-    throw new Error(msg);
+    return { ok: false, error: msg };
   }
   const data = parsed.data;
 
@@ -32,27 +36,28 @@ export async function completeRegistration(raw: unknown) {
     include: { applicant: true },
   });
   if (!application || application.status !== "APPROVED") {
-    throw new Error("This setup link is invalid or has already been used.");
+    return { ok: false, error: "This setup link is invalid or has already been used." };
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
 
-  const member = await prisma.$transaction(async (tx) => {
-    const existingBySchool = await tx.member.findUnique({
-      where: { universityId: application.applicant.universityId },
-    });
-    if (existingBySchool) {
-      throw new Error("An account already exists for this application.");
-    }
+  const existingBySchool = await prisma.member.findUnique({
+    where: { universityId: application.applicant.universityId },
+  });
+  if (existingBySchool) {
+    return { ok: false, error: "An account already exists for this application." };
+  }
 
-    const usernameTaken = await tx.member.findUnique({
-      where: { username: data.username },
-    });
-    if (usernameTaken) {
-      throw new Error("That username is already taken. Pick another.");
-    }
+  const usernameTaken = await prisma.member.findUnique({
+    where: { username: data.username },
+  });
+  if (usernameTaken) {
+    return { ok: false, error: "That username is already taken. Pick another." };
+  }
 
-    const created = await tx.member.create({
+  try {
+    // Sequential writes — Neon HTTP on Workers does not support interactive $transaction.
+    const member = await prisma.member.create({
       data: {
         username: data.username,
         universityId: application.applicant.universityId,
@@ -65,25 +70,29 @@ export async function completeRegistration(raw: unknown) {
       },
     });
 
-    await tx.regularMember.create({
+    await prisma.regularMember.create({
       data: {
-        memberId: created.memberId,
+        memberId: member.memberId,
         expectedGraduation: data.expectedGraduation,
       },
     });
 
-    await tx.clubApplication.update({
+    await prisma.clubApplication.update({
       where: { clubAppId: application.clubAppId },
       data: { accountSetupToken: null },
     });
 
-    return created;
-  });
+    revalidatePath("/admin/applicants");
+    revalidatePath("/admin/members");
 
-  revalidatePath("/admin/applicants");
-  revalidatePath("/admin/members");
-
-  return { username: member.username };
+    return { ok: true, username: member.username };
+  } catch (err) {
+    console.error("[completeRegistration]", err);
+    return {
+      ok: false,
+      error: "Could not create your account. Please try again or contact the club president.",
+    };
+  }
 }
 
 export async function updateMemberProfile(raw: unknown) {

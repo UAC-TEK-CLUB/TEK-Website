@@ -15,6 +15,7 @@
     "cf:build": "npm run db:generate && DATABASE_URL=postgresql://build:build@ep-build-placeholder.neon.tech/neondb opennextjs-cloudflare build && node scripts/copy-prisma-wasm.mjs && node scripts/verify-cf-build.mjs",
     "cf:verify": "node scripts/verify-cf-build.mjs",
     "cf:smoke": "node scripts/smoke-cf-deploy.mjs",
+    "cf:smoke:auth": "tsx scripts/smoke-auth-flow.ts",
     "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
     "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy && npm run cf:smoke",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"

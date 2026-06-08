@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { requireExecutive, requireSiteAdmin } from "@/lib/permissions";
+import { requireExecutive, requirePresident, requireSiteAdmin } from "@/lib/permissions";
+import { fullName } from "@/lib/utils";
 import {
   submitApplicationSchema,
   decideApplicationSchema,
@@ -42,13 +43,50 @@ export async function recordVisit() {
   return created.visitorId;
 }
 
-export async function submitApplication(raw: unknown) {
-  const data = submitApplicationSchema.parse(raw);
-  const visitorId = await recordVisit();
-  const accepted = isAutoEligible(data.major);
+export type SubmitApplicationResult =
+  | { ok: true; accepted: true; registerUrl: string }
+  | { ok: true; accepted: false }
+  | { ok: false; error: string };
 
-  const result = await prisma.$transaction(async (tx) => {
-    await tx.applicant.upsert({
+function applicationValidationError(raw: unknown): string {
+  const parsed = submitApplicationSchema.safeParse(raw);
+  if (parsed.success) return "";
+  const fe = parsed.error.flatten().fieldErrors;
+  return (
+    fe.universityId?.[0] ??
+    fe.firstName?.[0] ??
+    fe.lastName?.[0] ??
+    fe.email?.[0] ??
+    fe.major?.[0] ??
+    fe.codingExperience?.[0] ??
+    "Please check your application and try again."
+  );
+}
+
+export async function submitApplication(raw: unknown): Promise<SubmitApplicationResult> {
+  const parsed = submitApplicationSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: applicationValidationError(raw) };
+  }
+  const data = parsed.data;
+
+  let visitorId: string;
+  try {
+    visitorId = await recordVisit();
+  } catch {
+    return {
+      ok: false,
+      error: "Could not submit your application right now. Please try again in a moment.",
+    };
+  }
+
+  const accepted = isAutoEligible(data.major);
+  const accountSetupToken = accepted ? crypto.randomUUID() : null;
+
+  let application;
+  try {
+    // Neon HTTP on Workers does not support interactive $transaction — use sequential writes.
+    await prisma.applicant.upsert({
       where: { universityId: data.universityId },
       update: {
         firstName: data.firstName,
@@ -63,24 +101,36 @@ export async function submitApplication(raw: unknown) {
       },
     });
 
-    const application = await tx.clubApplication.create({
+    application = await prisma.clubApplication.create({
       data: {
         applicantId: data.universityId,
         visitorId,
         major: data.major,
         codingExperience: data.codingExperience,
         status: accepted ? "APPROVED" : "PENDING",
-        accountSetupToken: accepted ? crypto.randomUUID() : null,
+        accountSetupToken,
       },
     });
-
-    return application;
-  });
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === "P2002") {
+      return {
+        ok: false,
+        error:
+          "We already have an application on file for this university ID or email. Check your inbox or contact the club if you need help.",
+      };
+    }
+    console.error("[submitApplication]", err);
+    return {
+      ok: false,
+      error: "Could not save your application. Please try again or contact the club president.",
+    };
+  }
 
   revalidatePath("/admin/applicants");
 
-  if (accepted && result.accountSetupToken) {
-    const registerPath = `/register?token=${result.accountSetupToken}`;
+  if (accepted && application.accountSetupToken) {
+    const registerPath = `/register?token=${application.accountSetupToken}`;
     await sendMail(
       acceptanceEmail({
         to: data.email,
@@ -90,13 +140,14 @@ export async function submitApplication(raw: unknown) {
       })
     );
     return {
-      accepted: true as const,
+      ok: true,
+      accepted: true,
       registerUrl: registerPath,
     };
   }
 
   await sendMail(pendingEmail({ to: data.email, firstName: data.firstName }));
-  return { accepted: false as const };
+  return { ok: true, accepted: false };
 }
 
 export async function listApplications(filters?: { status?: ApplicationStatus }) {
@@ -205,6 +256,73 @@ export async function resendAccountSetupLink(raw: unknown) {
   );
 
   return { registerUrl: registerPath };
+}
+
+export type PresidentMemberAlert = {
+  id: string;
+  type: "application_approved" | "member_joined";
+  title: string;
+  detail: string;
+  href: string;
+  at: string;
+};
+
+/** Recent approvals and new member registrations for the president notification popups. */
+export async function getPresidentMemberAlerts(
+  sinceIso: string
+): Promise<PresidentMemberAlert[]> {
+  await requirePresident();
+  const since = new Date(sinceIso);
+  if (Number.isNaN(since.getTime())) {
+    return [];
+  }
+
+  const [applications, members] = await Promise.all([
+    prisma.clubApplication.findMany({
+      where: { status: "APPROVED", submittedAt: { gt: since } },
+      include: { applicant: true },
+      orderBy: { submittedAt: "desc" },
+      take: 20,
+    }),
+    prisma.member.findMany({
+      where: { joinDate: { gt: since }, memberType: "REGULAR" },
+      orderBy: { joinDate: "desc" },
+      take: 20,
+      select: {
+        memberId: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        joinDate: true,
+      },
+    }),
+  ]);
+
+  const alerts: PresidentMemberAlert[] = [];
+
+  for (const app of applications) {
+    alerts.push({
+      id: `app:${app.clubAppId}`,
+      type: "application_approved",
+      title: "Application approved",
+      detail: `${fullName(app.applicant.firstName, app.applicant.lastName)} · ${app.major}`,
+      href: "/admin/applicants",
+      at: app.submittedAt.toISOString(),
+    });
+  }
+
+  for (const member of members) {
+    alerts.push({
+      id: `member:${member.memberId}`,
+      type: "member_joined",
+      title: "New member joined",
+      detail: `${fullName(member.firstName, member.lastName)} (@${member.username})`,
+      href: "/admin/members",
+      at: member.joinDate.toISOString(),
+    });
+  }
+
+  return alerts.sort((a, b) => b.at.localeCompare(a.at));
 }
 
 export async function visitorAnalytics() {

@@ -191,6 +191,9 @@ console.log(`[smoke-cf-deploy] ${BASE}\n`);
 await checkPublicRoute("/");
 await checkPublicRoute("/login");
 await checkPublicRoute("/apply");
+await checkPublicRoute("/register");
+await checkPublicRoute("/account/find-id");
+await checkPublicRoute("/account/forgot-password");
 await checkWasm();
 await loginAndCheckDashboard();
 

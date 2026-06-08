@@ -49,6 +49,10 @@ export function TokenRegisterForm({ token, prefill }: Props) {
       }
       try {
         const result = await completeRegistration(validated.data);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
         const signInRes = await signIn("credentials", {
           username: result.username,
           password,
@@ -60,8 +64,8 @@ export function TokenRegisterForm({ token, prefill }: Props) {
         }
         router.push("/dashboard");
         router.refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not create account.");
+      } catch {
+        setError("Could not create account. Please try again.");
       }
     });
   }

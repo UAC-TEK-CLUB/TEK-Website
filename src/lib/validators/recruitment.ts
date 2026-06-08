@@ -6,7 +6,11 @@ export const submitApplicationSchema = z.object({
   lastName: z.string().min(1).max(60),
   email: z.string().email(),
   major: z.string().min(1).max(120),
-  codingExperience: z.string().min(10).max(2000),
+  codingExperience: z
+    .string()
+    .trim()
+    .min(1, "Please describe your coding experience (or write “None” if you are just starting).")
+    .max(2000),
 });
 export type SubmitApplicationInput = z.infer<typeof submitApplicationSchema>;
 

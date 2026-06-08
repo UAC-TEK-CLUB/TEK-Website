@@ -29,13 +29,17 @@ export function ApplicationForm() {
           codingExperience: formData.get("codingExperience"),
         });
 
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
         if (result.accepted) {
           router.push(result.registerUrl);
           return;
         }
         setSubmitted(true);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Submission failed.");
+      } catch {
+        setError("Submission failed. Please try again.");
       }
     });
   }
@@ -102,9 +106,13 @@ export function ApplicationForm() {
           id="codingExperience"
           name="codingExperience"
           required
+          minLength={1}
           rows={5}
-          placeholder="Tell us briefly about your background — languages, projects, what you want to learn."
+          placeholder='e.g. "None — I want to learn" or languages and projects you have tried.'
         />
+        <p className="text-xs text-muted-foreground">
+          A short answer is fine. Write &quot;None&quot; if you are new to coding.
+        </p>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" disabled={pending} className="w-full">
